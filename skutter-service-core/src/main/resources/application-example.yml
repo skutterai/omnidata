@@ -1,0 +1,331 @@
+# Example configuration for Skutter Common Framework
+# Copy and adapt this file to your application's application.yml
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/api}
+  # Enable HTTP/2 for better performance (requires compatible environment/proxy)
+  http2:
+    enabled: true
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 1024
+  # Forward headers from reverse proxy if present
+  forward-headers-strategy: native
+
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:skutter-service}
+  
+  # Database Configuration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/skutter_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver # Ensure driver is specified
+    hikari:
+      # Core pool settings
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
+      # Timeouts (adjust based on database performance and network latency)
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT:600000}
+      max-lifetime: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:1800000}
+      validation-timeout: ${SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT:5000}
+      # Optional: Leak detection (useful during development/testing)
+      # leak-detection-threshold: 2000 # 2 seconds
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true # Set to false in production for performance
+        jdbc:
+          lob.non_contextual_creation: true # Required for certain environments
+
+# Skutter Framework Configuration
+skutter:
+  # Skutter Security Auto-Configuration Control
+  security:
+    enabled: ${SKUTTER_SECURITY_ENABLED:true}
+    
+    # HTTPS configuration
+    https:
+      # Whether to enforce HTTPS
+      enabled: ${SKUTTER_HTTPS_ENABLED:true}
+      # Port to use for HTTPS
+      port: ${SKUTTER_HTTPS_PORT:8443}
+      # Keystore settings
+      keystore-path: ${SKUTTER_HTTPS_KEYSTORE_PATH:classpath:keystore/keystore.p12}
+      keystore-password: ${SKUTTER_HTTPS_KEYSTORE_PASSWORD:changeit}
+      keystore-type: ${SKUTTER_HTTPS_KEYSTORE_TYPE:PKCS12}
+      keystore-alias: ${SKUTTER_HTTPS_KEYSTORE_ALIAS:skutter}
+      # HSTS (HTTP Strict Transport Security) settings
+      hsts-enabled: ${SKUTTER_HTTPS_HSTS_ENABLED:true}
+      hsts-max-age-seconds: ${SKUTTER_HTTPS_HSTS_MAX_AGE_SECONDS:31536000}
+      hsts-include-sub-domains: ${SKUTTER_HTTPS_HSTS_INCLUDE_SUB_DOMAINS:true}
+      hsts-preload: ${SKUTTER_HTTPS_HSTS_PRELOAD:false}
+    
+    jwt:
+      # Configures Skutter's internal JWT validation/processing
+      # Either secret or public-key-path should be defined (not both)
+      secret: ${JWT_SECRET:your-secret-key-here-at-least-32-chars}
+      # public-key-path: ${JWT_PUBLIC_KEY_PATH:classpath:keys/public.pem}
+      issuer: ${JWT_ISSUER_URL:https://api.supabase.co/auth/v1}
+      validate-expiration: ${JWT_VALIDATE_EXPIRATION:true}
+      validate-issuer: ${JWT_VALIDATE_ISSUER:true}
+      # Claims mapping (adjust based on your JWT structure)
+      role-claim: ${JWT_ROLE_CLAIM:app_metadata.skutter_role}
+      user-id-claim: ${JWT_USER_ID_CLAIM:sub}
+      set-postgres-user-id: ${JWT_SET_POSTGRES_USER_ID:true}
+      expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+    # Configures Skutter's security filter for public paths
+    public-paths:
+      - /actuator/health/**
+      - /actuator/info
+      - /v3/api-docs/**
+      - /swagger-ui/**
+      - /swagger-ui.html
+      - /health
+      - /public/**
+
+    # CORS configuration
+    cors:
+      # Whether CORS is enabled
+      enabled: ${SKUTTER_CORS_ENABLED:true}
+      # Allowed origins (domains) for CORS
+      # For production, specify exact domains
+      allowed-origins:
+        - ${SKUTTER_CORS_ALLOWED_ORIGINS:https://your-app-domain.com}
+        - ${SKUTTER_CORS_ALLOWED_ORIGINS_ADMIN:https://admin.your-app-domain.com}
+      # Alternatively, to allow all origins (not recommended for production)
+      # allowed-origins:
+      #   - "*"
+      # Allowed HTTP methods
+      allowed-methods:
+        - ${SKUTTER_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+      # Allowed HTTP headers
+      allowed-headers:
+        - ${SKUTTER_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,X-Requested-With,X-XSRF-TOKEN,X-Tenant-ID}
+      # Whether to allow credentials in CORS requests
+      allow-credentials: ${SKUTTER_CORS_ALLOW_CREDENTIALS:true}
+      # Max age in seconds for CORS preflight requests
+      max-age: ${SKUTTER_CORS_MAX_AGE:3600}
+
+  # API Configuration (Legacy - prefer standard configurations where possible)
+  # Kept for backward compatibility with SkutterApiAutoConfiguration
+  api:
+    # Rate limiting configuration (consider using resilience4j.ratelimiter instead)
+    rate-limit:
+      enabled: ${SKUTTER_API_RATE_LIMIT_ENABLED:true}
+      limit: ${SKUTTER_API_RATE_LIMIT_LIMIT:100}
+      refresh-period: ${SKUTTER_API_RATE_LIMIT_REFRESH_PERIOD:60s}
+    
+    # API Documentation (consider using springdoc.* properties instead)
+    documentation:
+      enabled: ${SKUTTER_API_DOCUMENTATION_ENABLED:true}
+      title: ${SKUTTER_API_DOCUMENTATION_TITLE:Skutter Service API}
+      version: ${SKUTTER_API_DOCUMENTATION_VERSION:1.0.0}
+      description: ${SKUTTER_API_DOCUMENTATION_DESCRIPTION:API for Skutter Service}
+      contact-name: ${SKUTTER_API_DOCUMENTATION_CONTACT_NAME:Skutter Development Team}
+      contact-email: ${SKUTTER_API_DOCUMENTATION_CONTACT_EMAIL:dev@skutter.ai}
+      contact-url: ${SKUTTER_API_DOCUMENTATION_CONTACT_URL:https://skutter.ai}
+      license-name: ${SKUTTER_API_DOCUMENTATION_LICENSE_NAME:Apache 2.0}
+      license-url: ${SKUTTER_API_DOCUMENTATION_LICENSE_URL:https://www.apache.org/licenses/LICENSE-2.0.html}
+    
+    # Resilience patterns (consider using resilience4j.* properties instead)
+    resilience:
+      circuit-breaker-enabled: ${SKUTTER_API_RESILIENCE_CIRCUIT_BREAKER_ENABLED:true}
+      failure-threshold: ${SKUTTER_API_RESILIENCE_FAILURE_THRESHOLD:50}
+      wait-duration-in-open-state: ${SKUTTER_API_RESILIENCE_WAIT_DURATION_IN_OPEN_STATE:60s}
+      retry-enabled: ${SKUTTER_API_RESILIENCE_RETRY_ENABLED:true}
+      max-retry-attempts: ${SKUTTER_API_RESILIENCE_MAX_RETRY_ATTEMPTS:3}
+      retry-backoff-duration: ${SKUTTER_API_RESILIENCE_RETRY_BACKOFF_DURATION:500ms}
+
+  # Skutter Data Access Helpers
+  data:
+    # Propagate user ID from security context to Postgres session variable (for RLS)
+    enable-user-id-propagation: ${SKUTTER_DATA_ENABLE_USER_ID_PROPAGATION:true}
+    
+    # Skutter PostGIS Helpers
+    post-gis:
+      enabled: ${SKUTTER_DATA_POSTGIS_ENABLED:true}
+      default-srid: ${SKUTTER_DATA_POSTGIS_DEFAULT_SRID:4326}
+
+  # Skutter Observability Helpers
+  observability:
+    # Configures Skutter's Correlation ID filter/interceptor
+    correlation:
+      header-name: ${SKUTTER_CORRELATION_HEADER_NAME:X-Correlation-ID}
+      generate-if-missing: ${SKUTTER_CORRELATION_GENERATE_IF_MISSING:true}
+      propagate-to-downstream: ${SKUTTER_CORRELATION_PROPAGATE_TO_DOWNSTREAM:true}
+    
+    # Skutter Logging Enhancements
+    logging:
+      level: ${SKUTTER_LOGGING_LEVEL:INFO}
+      include-correlation-id: ${SKUTTER_LOGGING_INCLUDE_CORRELATION_ID:true}
+      include-user-id: ${SKUTTER_LOGGING_INCLUDE_USER_ID:true}
+      include-request-details: ${SKUTTER_LOGGING_INCLUDE_REQUEST_DETAILS:true}
+
+# Standard Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: ${RESILIENCE4J_CIRCUITBREAKER_SLIDING_WINDOW_SIZE:10}
+        minimumNumberOfCalls: ${RESILIENCE4J_CIRCUITBREAKER_MINIMUM_CALLS:5}
+        permittedNumberOfCallsInHalfOpenState: ${RESILIENCE4J_CIRCUITBREAKER_PERMITTED_CALLS_HALF_OPEN:3}
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: ${RESILIENCE4J_CIRCUITBREAKER_WAIT_DURATION_OPEN:60s}
+        failureRateThreshold: ${RESILIENCE4J_CIRCUITBREAKER_FAILURE_RATE_THRESHOLD:50}
+        eventConsumerBufferSize: 10
+        # Consider ignoring common client errors or business exceptions
+        # ignoreExceptions:
+        #   - org.springframework.web.client.HttpClientErrorException$NotFound
+        #   - com.example.BusinessRuleException
+    instances:
+      # Example instance configuration - define for specific external calls
+      # externalApiService:
+      #   baseConfig: default
+      #   failureRateThreshold: 60 # Override default if needed
+      pass
+  ratelimiter:
+    configs:
+      default:
+        registerHealthIndicator: true
+        limitForPeriod: ${RESILIENCE4J_RATELIMITER_LIMIT_FOR_PERIOD:100}
+        limitRefreshPeriod: ${RESILIENCE4J_RATELIMITER_LIMIT_REFRESH_PERIOD:60s}
+        timeoutDuration: ${RESILIENCE4J_RATELIMITER_TIMEOUT_DURATION:3s}
+    instances:
+      # Example instance configuration
+      # specificApiEndpoint:
+      #   baseConfig: default
+      #   limitForPeriod: 20 # Override default if needed
+      pass
+  retry:
+    configs:
+      default:
+        maxAttempts: ${RESILIENCE4J_RETRY_MAX_ATTEMPTS:3}
+        waitDuration: ${RESILIENCE4J_RETRY_WAIT_DURATION:500ms}
+        # Consider exponential backoff for better resilience
+        # enableExponentialBackoff: true
+        # exponentialBackoffMultiplier: 2
+        # exponentialMaxWaitDuration: 5s
+        # retryExceptions: # Defaults to empty (retry on all exceptions)
+        #  - java.io.IOException
+        #  - java.util.concurrent.TimeoutException
+        # ignoreExceptions: # Exceptions that should NOT trigger a retry
+        #  - com.example.NonRetryableException
+    instances:
+      # Example instance configuration
+      # anotherExternalCall:
+      #   baseConfig: default
+      #   maxAttempts: 5 # Override default if needed
+      pass
+
+# Standard Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        # Expose standard endpoints for monitoring
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,metrics,prometheus,loggers}
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when_authorized}
+      # Enable health groups if needed
+      # groups:
+      #   readiness:
+      #     include: db,diskSpace
+      #   liveness:
+      #     include: ping
+  health:
+    # Enable health indicators for Resilience4j components
+    circuitbreakers:
+      enabled: ${MANAGEMENT_HEALTH_CIRCUITBREAKERS_ENABLED:true}
+    ratelimiters:
+      enabled: ${MANAGEMENT_HEALTH_RATELIMITERS_ENABLED:true}
+  metrics:
+    # Enable specific metric binders for detailed monitoring
+    enable:
+      all: false # Start by disabling all, then enable specific ones
+      jvm: true
+      system: true
+      process: true
+      diskspace: true
+      log4j2: false # Or logback: true if using logback
+      logging: true # General logging metrics
+      executor: true
+      tomcat: true
+      http.client.requests: true # Metrics for RestTemplate/WebClient
+      http.server.requests: true # Metrics for incoming requests
+      spring.integration: true # If using Spring Integration
+      spring.data.repository: true # If using Spring Data repositories
+      resilience4j: true # Metrics for Resilience4j components
+      # Database pool metrics (adjust 'db' prefix if needed)
+      "HikariCP Connections": true
+    export:
+      prometheus:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true}
+  prometheus:
+    metrics:
+      export:
+        enabled: ${MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED:true}
+
+# Standard Logging Configuration
+logging:
+  file:
+    # Set specific log file name in the logs directory
+    name: ${LOGGING_FILE_NAME:${LOG_PATH:./logs}/skutter-service.log}
+  # Configure log file rotation using Logback (default in Spring Boot)
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${logging.file.name}.%d{yyyy-MM-dd}.%i.log.gz
+      max-file-size: ${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE:10MB}
+      max-history: ${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY:30}
+      total-size-cap: ${LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP:3GB}
+      clean-history-on-start: false
+  # Pattern to include timestamp, thread, logging level, logger name, correlation ID, and message
+  pattern:
+    console: "%clr(%d{${LOG_DATEFORMAT_PATTERN:yyyy-MM-dd HH:mm:ss.SSS}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} [%X{correlationId:-}] %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{correlationId:-}] - %msg%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
+  # Log levels by package (Set defaults, override in specific profiles if needed)
+  level:
+    root: ${LOGGING_LEVEL_ROOT:INFO}
+    ai.skutter: ${LOGGING_LEVEL_AI_SKUTTER:DEBUG}
+    org.hibernate.SQL: ${LOGGING_LEVEL_ORG_HIBERNATE_SQL:DEBUG}
+    org.hibernate.type.descriptor.sql: ${LOGGING_LEVEL_ORG_HIBERNATE_TYPE_DESCRIPTOR_SQL:TRACE}
+    org.springframework.web: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB:INFO}
+    org.springframework.security: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY:INFO}
+    # Example: Set security logging to DEBUG only in dev profile
+    # org.springframework.security: ${LOG_LEVEL_SECURITY:INFO} # Use env var or profile override
+
+# SpringDoc OpenAPI Configuration (already covered by skutter.api.documentation?)
+# Generally prefer using the standard springdoc properties unless skutter provides wrappers
+springdoc:
+  api-docs:
+    path: ${SPRINGDOC_API_DOCS_PATH:/v3/api-docs}
+  swagger-ui:
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+    operationsSorter: method
+  show-actuator: ${SPRINGDOC_SHOW_ACTUATOR:true}
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  # Add more info (title, version, description, etc.) via @OpenAPIDefinition in a @Configuration class
+  # Example: 
+  # @OpenAPIDefinition(
+  #   info = @Info(
+  #     title = "My Service API", 
+  #     version = "1.0", 
+  #     description = "Description of my API",
+  #     contact = @Contact(name = "Dev Team", email = "dev@example.com"),
+  #     license = @License(name = "Apache 2.0", url = "http://springdoc.org")
+  #   )
+  # )

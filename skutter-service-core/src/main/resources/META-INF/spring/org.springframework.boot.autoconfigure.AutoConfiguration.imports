@@ -1,0 +1,5 @@
+ai.skutter.common.config.SkutterSecurityAutoConfiguration
+ai.skutter.common.config.SkutterApiAutoConfiguration
+ai.skutter.common.config.SkutterDataAutoConfiguration
+ai.skutter.common.config.SkutterObservabilityAutoConfiguration
+ai.skutter.common.config.SkutterClientAutoConfiguration 

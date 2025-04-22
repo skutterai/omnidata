@@ -1,0 +1,33 @@
+# Git Ignore file for Skutter Omnidata project
+
+# Environment files
+.env*
+
+# Build artifacts
+build/
+.gradle/
+target/
+
+# IDE specific files
+.idea/
+*.iml
+*.iws
+.vscode/
+# Allow shared vscode settings if needed, but ignore user settings
+# !.vscode/launch.json
+# !.vscode/extensions.json
+
+# Dependency directories
+node_modules/
+
+# Log files
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Other
+*.swp
+*~ 

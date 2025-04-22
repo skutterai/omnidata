@@ -1,0 +1,30 @@
+# Supabase Connection Details
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_API_KEY=your-supabase-api-key
+
+# Test User Credentials
+# Platform Owner - Full read/write access to all APIs and projects
+SUPABASE_EMAIL_PLATFORM_OWNER=platformowner@example.com
+SUPABASE_PASSWORD_PLATFORM_OWNER=your-password
+
+# Platform Viewer - Read-only access to all APIs and projects
+SUPABASE_EMAIL_PLATFORM_VIEWER=platformviewer@example.com
+SUPABASE_PASSWORD_PLATFORM_VIEWER=your-password
+
+# Project Admin - Read/write access to specific projects
+SUPABASE_EMAIL_PROJECT_ADMIN=projectadmin@example.com
+SUPABASE_PASSWORD_PROJECT_ADMIN=your-password
+
+# Project Viewer - Read-only access to specific projects
+SUPABASE_EMAIL_PROJECT_VIEWER=projectviewer@example.com
+SUPABASE_PASSWORD_PROJECT_VIEWER=your-password
+
+# JWT Configuration - REQUIRED for JWT validation
+# -----------------------------------------------
+# Must match your Supabase JWT secret key!
+# Find this in Supabase dashboard under Project Settings > API > JWT Settings
+# Look for "JWT Secret" value
+JWT_SECRET=your-supabase-jwt-secret-key-here
+
+# Should match your Supabase auth endpoint
+JWT_ISSUER=https://your-project.supabase.co/auth/v1 

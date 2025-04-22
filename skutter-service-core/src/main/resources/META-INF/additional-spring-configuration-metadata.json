@@ -1,0 +1,158 @@
+{
+  "properties": [
+    {
+      "name": "skutter.security.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether security features are enabled.",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.cors.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether CORS is enabled.",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.cors.allowed-origins",
+      "type": "java.util.List<java.lang.String>",
+      "description": "List of allowed origins for CORS. Default is '*' which allows all origins. For production, specify exact domains."
+    },
+    {
+      "name": "skutter.security.cors.allowed-methods",
+      "type": "java.util.List<java.lang.String>",
+      "description": "HTTP methods allowed for CORS requests."
+    },
+    {
+      "name": "skutter.security.cors.allowed-headers",
+      "type": "java.util.List<java.lang.String>",
+      "description": "HTTP headers allowed in CORS requests."
+    },
+    {
+      "name": "skutter.security.cors.allow-credentials",
+      "type": "java.lang.Boolean",
+      "description": "Whether to allow credentials in CORS requests.",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.cors.max-age",
+      "type": "java.lang.Long",
+      "description": "How long (in seconds) browsers should cache CORS preflight responses.",
+      "defaultValue": 3600
+    },
+    {
+      "name": "skutter.security.https.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enforce HTTPS for all requests.",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.https.port",
+      "type": "java.lang.Integer",
+      "description": "Port to use for HTTPS.",
+      "defaultValue": 8443
+    },
+    {
+      "name": "skutter.security.https.keystore-path",
+      "type": "java.lang.String",
+      "description": "Path to the keystore file.",
+      "defaultValue": "classpath:keystore/keystore.p12"
+    },
+    {
+      "name": "skutter.security.https.keystore-password",
+      "type": "java.lang.String",
+      "description": "Password for the keystore."
+    },
+    {
+      "name": "skutter.security.https.keystore-type",
+      "type": "java.lang.String",
+      "description": "Type of keystore (PKCS12, JKS, etc.).",
+      "defaultValue": "PKCS12"
+    },
+    {
+      "name": "skutter.security.https.keystore-alias",
+      "type": "java.lang.String",
+      "description": "Alias to use in the keystore."
+    },
+    {
+      "name": "skutter.security.https.hsts-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to enable HSTS (HTTP Strict Transport Security).",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.https.hsts-max-age-seconds",
+      "type": "java.lang.Long",
+      "description": "Max age for HSTS in seconds.",
+      "defaultValue": 31536000
+    },
+    {
+      "name": "skutter.security.https.hsts-include-sub-domains",
+      "type": "java.lang.Boolean",
+      "description": "Whether to include subdomains in HSTS.",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.https.hsts-preload",
+      "type": "java.lang.Boolean",
+      "description": "Whether to add the preload directive to HSTS.",
+      "defaultValue": false
+    },
+    {
+      "name": "skutter.security.jwt.secret",
+      "type": "java.lang.String",
+      "description": "Secret key for JWT validation."
+    },
+    {
+      "name": "skutter.security.jwt.public-key-path",
+      "type": "java.lang.String",
+      "description": "Path to the public key file for JWT validation."
+    },
+    {
+      "name": "skutter.security.jwt.issuer",
+      "type": "java.lang.String",
+      "description": "Expected issuer for JWT validation.",
+      "defaultValue": "https://api.supabase.co/auth/v1"
+    },
+    {
+      "name": "skutter.security.jwt.expiration-ms",
+      "type": "java.lang.Long",
+      "description": "JWT token expiration time in milliseconds.",
+      "defaultValue": 3600000
+    },
+    {
+      "name": "skutter.security.jwt.validate-expiration",
+      "type": "java.lang.Boolean",
+      "description": "Whether to validate token expiration.",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.jwt.validate-issuer",
+      "type": "java.lang.Boolean",
+      "description": "Whether to validate token issuer.",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.jwt.role-claim",
+      "type": "java.lang.String",
+      "description": "JWT claim path for extracting user roles.",
+      "defaultValue": "app_metadata.skutter_role"
+    },
+    {
+      "name": "skutter.security.jwt.user-id-claim",
+      "type": "java.lang.String",
+      "description": "JWT claim for extracting user ID.",
+      "defaultValue": "sub"
+    },
+    {
+      "name": "skutter.security.jwt.set-postgres-user-id",
+      "type": "java.lang.Boolean",
+      "description": "Whether to set the JWT user ID as a Postgres user ID via SET LOCAL.",
+      "defaultValue": true
+    },
+    {
+      "name": "skutter.security.public-paths",
+      "type": "java.util.List<java.lang.String>",
+      "description": "List of paths that should be publicly accessible without authentication."
+    }
+  ]
+} 

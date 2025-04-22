@@ -1,0 +1,233 @@
+plugins {
+    id 'java-library'
+    id 'org.springframework.boot' version '3.2.4'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'maven-publish'
+    id 'signing'
+    id 'jacoco'
+    id 'org.owasp.dependencycheck' version '9.0.10'
+    id 'checkstyle'
+    id 'io.freefair.lombok' version '8.4'
+    id 'org.springdoc.openapi-gradle-plugin' version '1.8.0'
+}
+
+group = 'ai.skutter.common'
+version = '0.1.0-SNAPSHOT'
+description = 'Skutter Common Framework Library'
+
+// Replace deprecated sourceCompatibility and targetCompatibility
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+    withJavadocJar()
+    withSourcesJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = true
+    archiveClassifier.set('')
+}
+
+dependencies {
+    // Spring Boot starters
+    api 'org.springframework.boot:spring-boot-starter'
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-starter-security'
+    api 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+    api 'org.springframework.boot:spring-boot-starter-validation'
+    api 'org.springframework.boot:spring-boot-starter-hateoas'
+    api 'org.springframework.boot:spring-boot-starter-actuator'
+    api 'org.springframework.boot:spring-boot-starter-cache'
+    
+    // Spring Cloud
+    api 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j:3.0.3'
+    
+    // Database
+    api 'org.postgresql:postgresql:42.7.2'
+    api 'org.flywaydb:flyway-core'
+    api 'org.hibernate.orm:hibernate-spatial:6.4.4.Final'
+    
+    // Observability
+    api 'io.micrometer:micrometer-registry-prometheus'
+    
+    // Documentation
+    api 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.4.0'
+    
+    // Jackson
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8'
+    
+    // JWT and Security
+    api 'io.jsonwebtoken:jjwt-api:0.12.3'
+    implementation 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    implementation 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+    
+    // MapStruct
+    api 'org.mapstruct:mapstruct:1.5.5.Final'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.5.Final'
+    
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.testcontainers:testcontainers:1.19.6'
+    testImplementation 'org.testcontainers:junit-jupiter:1.19.6'
+    testImplementation 'org.testcontainers:postgresql:1.19.6'
+    
+    // Utilities
+    implementation 'com.google.guava:guava:33.0.0-jre'
+    implementation 'org.apache.commons:commons-lang3:3.14.0'
+    implementation 'org.apache.commons:commons-collections4:4.4'
+    implementation 'commons-validator:commons-validator:1.8.0'
+    implementation 'commons-net:commons-net:3.11.0'
+    
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
+    
+    // Auto-configuration
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    
+    // Spring Boot Actuator for health, metrics, etc.
+    api 'org.springframework.boot:spring-boot-starter-actuator'
+}
+
+// Create sourceSets for integration tests
+sourceSets {
+    integrationTest {
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+            srcDir file('src/integration-test/java')
+        }
+        resources.srcDir file('src/integration-test/resources')
+    }
+}
+
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+// Ensure JUnit 5 is used
+test {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+// Create integration test task
+task integrationTest(type: Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+    
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+    
+    useJUnitPlatform()
+    
+    mustRunAfter test
+    
+    // Enable tests to use environment variables
+    systemProperties System.properties
+    environment System.getenv()
+}
+
+// Check task depends on integrationTest if explicitly enabled
+check.dependsOn tasks.findByName('integrationTest')
+
+// Configure JaCoCo for code coverage
+jacocoTestReport {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// Configure checkstyle
+checkstyle {
+    toolVersion = '10.12.5'
+    configFile = file("${rootDir}/config/checkstyle/checkstyle.xml")
+}
+
+// OWASP dependency check
+dependencyCheck {
+    failBuildOnCVSS = 7
+    suppressionFile = file("${rootDir}/config/owasp/suppressions.xml")
+    formats = ['HTML', 'JSON']
+}
+
+// Create security check task
+task securityCheck {
+    description = 'Runs security checks (OWASP dependency check)'
+    group = 'verification'
+    dependsOn dependencyCheckAnalyze
+}
+
+// Configure Maven publication
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            
+            pom {
+                name = 'Skutter Common Framework'
+                description = project.description
+                url = 'https://github.com/skutter/skutter-service-core'
+                
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id = 'skutter'
+                        name = 'Skutter Development Team'
+                        email = 'dev@skutter.com'
+                    }
+                }
+                
+                scm {
+                    connection = 'scm:git:git://github.com/skutter/skutter-service-core.git'
+                    developerConnection = 'scm:git:ssh://github.com/skutter/skutter-service-core.git'
+                    url = 'https://github.com/skutter/skutter-service-core'
+                }
+            }
+        }
+    }
+    
+    repositories {
+        maven {
+            name = 'GitHubPackages'
+            url = uri('https://maven.pkg.github.com/skutter/skutter-service-core')
+            credentials {
+                username = System.getenv('GITHUB_ACTOR')
+                password = System.getenv('GITHUB_TOKEN')
+            }
+        }
+    }
+}
+
+// Configure signing
+signing {
+    def signingKey = findProperty('signingKey')
+    def signingPassword = findProperty('signingPassword')
+    if (signingKey && signingPassword) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign publishing.publications.mavenJava
+    }
+} 
