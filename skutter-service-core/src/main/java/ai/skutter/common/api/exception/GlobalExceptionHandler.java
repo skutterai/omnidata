@@ -23,6 +23,7 @@ import ai.skutter.common.api.model.ErrorResponse;
 import ai.skutter.common.observability.filter.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -32,6 +33,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import ai.skutter.common.api.exception.RateLimitExceededException;
 
 /**
  * Global exception handler for standardized error responses
@@ -113,6 +116,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         );
         
         return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * Handle rate limit exceptions
+     */
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimitExceededException(
+            RateLimitExceededException ex, 
+            HttpServletRequest request) {
+        
+        log.warn("Rate limit exceeded: {}", ex.getMessage());
+        
+        String correlationId = request.getHeader(CorrelationIdFilter.CORRELATION_ID_KEY);
+        ErrorResponse errorResponse = ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.TOO_MANY_REQUESTS.value())
+            .error("TOO_MANY_REQUESTS")
+            .message("Rate limit exceeded")
+            .correlationId(correlationId)
+            .path(request.getRequestURI())
+            .build();
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Retry-After", "60");
+        
+        return new ResponseEntity<>(errorResponse, headers, HttpStatus.TOO_MANY_REQUESTS);
     }
 
     /**

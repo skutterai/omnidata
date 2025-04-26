@@ -24,6 +24,7 @@ import ai.skutter.common.observability.filter.CorrelationIdFilter;
 import ai.skutter.common.observability.properties.SkutterObservabilityProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.config.MeterFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.autoconfigure.metrics.MeterRegistryCustomizer;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -34,17 +35,12 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.core.Ordered;
+import org.springframework.util.StringUtils;
 
 @AutoConfiguration
 @EnableConfigurationProperties(SkutterObservabilityProperties.class)
 @ComponentScan("ai.skutter.common.observability")
 public class SkutterObservabilityAutoConfiguration {
-
-    private final SkutterObservabilityProperties observabilityProperties;
-
-    public SkutterObservabilityAutoConfiguration(SkutterObservabilityProperties observabilityProperties) {
-        this.observabilityProperties = observabilityProperties;
-    }
 
     @Bean
     @ConditionalOnMissingBean
@@ -64,13 +60,16 @@ public class SkutterObservabilityAutoConfiguration {
     @Bean
     @ConditionalOnClass(MeterRegistry.class)
     @ConditionalOnProperty(prefix = "skutter.observability.metrics", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public MeterRegistryCustomizer<MeterRegistry> metricsCommonTags() {
+    public MeterRegistryCustomizer<MeterRegistry> metricsCommonTags(
+            @Value("${spring.application.name:unknown-service}") String applicationName,
+            SkutterObservabilityProperties observabilityProperties) {
+        
         return registry -> {
-            // Add common tags to all metrics
-            registry.config().commonTags("application", observabilityProperties.getMetrics().getApplicationName());
+            if (StringUtils.hasText(applicationName)) {
+                 registry.config().commonTags("application", applicationName);
+            }
             
-            // Set base unit for all metrics if specified
-            if (observabilityProperties.getMetrics().isUseStandardizedUnits()) {
+            if (observabilityProperties.getMetrics() != null && observabilityProperties.getMetrics().isUseStandardizedUnits()) {
                 registry.config().meterFilter(MeterFilter.renameTag(
                     "http.server.requests", "uri", "/metrics"
                 ));

@@ -30,6 +30,9 @@ import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -39,6 +42,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.context.annotation.Lazy;
 
 @AutoConfiguration
 @EnableConfigurationProperties(SkutterApiProperties.class)
@@ -46,19 +50,36 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Import(CircuitBreakerConfiguration.class)
 public class SkutterApiAutoConfiguration implements WebMvcConfigurer {
 
-    private final RateLimitInterceptor rateLimitInterceptor;
+    private static final Logger log = LoggerFactory.getLogger(SkutterApiAutoConfiguration.class);
+
+    private RateLimitInterceptor rateLimitInterceptor;
+    
     private final SkutterApiProperties apiProperties;
 
-    public SkutterApiAutoConfiguration(RateLimitInterceptor rateLimitInterceptor, 
-                                      SkutterApiProperties apiProperties) {
-        this.rateLimitInterceptor = rateLimitInterceptor;
+    public SkutterApiAutoConfiguration(SkutterApiProperties apiProperties) {
         this.apiProperties = apiProperties;
+    }
+
+    @Autowired
+    public void setRateLimitInterceptor(@Lazy RateLimitInterceptor rateLimitInterceptor) {
+        this.rateLimitInterceptor = rateLimitInterceptor;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        if (apiProperties.getRateLimit().isEnabled()) {
-            registry.addInterceptor(rateLimitInterceptor);
+        log.info("Evaluating conditions for RateLimitInterceptor registration...");
+        boolean isBeanPresent = (rateLimitInterceptor != null);
+        boolean isEnabledProperty = apiProperties.getRateLimit().isEnabled();
+        log.info("RateLimitInterceptor bean present: {}", isBeanPresent);
+        log.info("skutter.api.rate-limit.enabled property value: {}", isEnabledProperty);
+
+        if (isBeanPresent && isEnabledProperty) {
+            log.info("Registering RateLimitInterceptor for path /** with order 0");
+            registry.addInterceptor(rateLimitInterceptor)
+                    .addPathPatterns("/**")
+                    .order(0);
+        } else {
+             log.warn("RateLimitInterceptor NOT registered. Bean present: {}, Enabled property: {}", isBeanPresent, isEnabledProperty);
         }
     }
 

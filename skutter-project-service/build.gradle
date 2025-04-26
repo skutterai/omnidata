@@ -1,0 +1,130 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.4'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'io.freefair.lombok' version '8.4'
+    id 'org.flywaydb.flyway' version '9.22.3'
+    id 'com.google.cloud.tools.jib' version '3.4.5'
+}
+
+group = 'ai.skutter.service'
+version = '0.1.0-SNAPSHOT'
+description = 'Skutter Project Management Service'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Reference the core library
+    implementation project(':skutter-service-core')
+    
+    // Spring Boot starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    
+    // Database
+    implementation 'org.postgresql:postgresql:42.7.2'
+    implementation 'org.flywaydb:flyway-core'
+    
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.testcontainers:testcontainers:1.19.6'
+    testImplementation 'org.testcontainers:junit-jupiter:1.19.6'
+    testImplementation 'org.testcontainers:postgresql:1.19.6'
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat = 'full'
+    }
+}
+
+// Function to load environment variables from a .env file
+def loadEnvFromFile(File envFile) {
+    def envVars = [:]
+    if (envFile.exists()) {
+        envFile.eachLine { line ->
+            def trimmedLine = line.trim()
+            // Skip comments and empty lines
+            if (trimmedLine.startsWith('#') || trimmedLine.isEmpty()) {
+                return
+            }
+            // Handle lines potentially starting with 'export '
+            if (trimmedLine.startsWith("export ")) {
+                trimmedLine = trimmedLine.substring(7)
+            }
+            def parts = trimmedLine.split('=', 2)
+            if (parts.length == 2) {
+                def key = parts[0].trim()
+                // Remove potential quotes around the value
+                def value = parts[1].trim().replaceAll(/^[\"']|[\"']$/,'')
+                envVars[key] = value
+            }
+        }
+    } else {
+        logger.warn("Environment file not found: {}", envFile.absolutePath)
+    }
+    return envVars
+}
+
+// Load environment variables from .env file
+def envVars = loadEnvFromFile(rootProject.file('.env'))
+
+// Parse database connection details for Flyway
+def dbUrl = System.getenv('SPRING_DATASOURCE_URL') ?: 
+           System.getenv('SKUTTER_DB_URL') ?: 
+           envVars.getOrDefault('SPRING_DATASOURCE_URL', 
+           envVars.getOrDefault('SKUTTER_DB_URL', 'jdbc:postgresql://localhost:5432/skutter'))
+
+def dbUser = System.getenv('SPRING_DATASOURCE_USERNAME') ?: 
+             System.getenv('SKUTTER_DB_USER') ?: 
+             envVars.getOrDefault('SPRING_DATASOURCE_USERNAME', 
+             envVars.getOrDefault('SKUTTER_DB_USER', 'postgres'))
+
+def dbPass = System.getenv('SPRING_DATASOURCE_PASSWORD') ?: 
+             System.getenv('SKUTTER_DB_PASSWORD') ?: 
+             envVars.getOrDefault('SPRING_DATASOURCE_PASSWORD', 
+             envVars.getOrDefault('SKUTTER_DB_PASSWORD', 'postgres'))
+
+// Flyway configuration for Gradle tasks
+flyway {
+    url = dbUrl
+    user = dbUser
+    password = dbPass
+    locations = ['classpath:db/migration']
+    connectRetries = 3
+    connectRetriesInterval = 10
+    cleanDisabled = false
+    validateMigrationNaming = true
+}
+
+// Jib configuration for Docker image
+jib {
+    from {
+        image = 'eclipse-temurin:17-jre-jammy'
+    }
+    to {
+        image = "skutterai/project-service:${version}"
+        tags = ['latest']
+    }
+    container {
+        ports = ['8080']
+        environment = [
+            SPRING_PROFILES_ACTIVE: "prod",
+            JAVA_TOOL_OPTIONS: "-Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
+        ]
+        creationTime = "USE_CURRENT_TIMESTAMP"
+    }
+} 

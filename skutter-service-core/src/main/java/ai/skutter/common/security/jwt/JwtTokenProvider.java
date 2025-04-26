@@ -83,7 +83,7 @@ public class JwtTokenProvider {
             log.debug("JWT token validation successful");
             return true;
         } catch (Exception e) {
-            log.debug("Invalid token: {}", e.getMessage());
+            log.debug("Invalid JWT token: {}", e.getMessage());
             return false;
         }
     }
@@ -255,7 +255,6 @@ public class JwtTokenProvider {
                     log.warn("JWT token will expire soon. Token expires at: {}, current time: {}, minutes remaining: {}", 
                             expiration, new Date(), (expiration.getTime() - System.currentTimeMillis()) / 60000);
                 }
-                
                 log.trace("JWT token expiration validated successfully");
             }
             

@@ -37,6 +37,7 @@ import org.springframework.boot.logging.LogLevel;
 import org.springframework.boot.logging.LoggerConfiguration;
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.http.MediaType;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -47,15 +48,16 @@ import java.util.stream.Collectors;
 
 /**
  * REST controller and actuator endpoint for managing logger levels.
- * This provides two ways to access logger management:
- * 1. Using the REST API: /api/logging/** (documented below)
- * 2. Using the Actuator endpoint: /actuator/skutter-loggers/** (documented via Actuator mechanism)
+ * Requires PLATFORM_OWNER role for access via /api/logging/**.
+ * Access via Actuator endpoint (/actuator/skutter-loggers/**) is typically
+ * secured separately in SkutterActuatorAutoConfiguration.
  */
 @RestController
 @RequestMapping("/api/logging")
 @Endpoint(id = "skutter-loggers") // Also exposes via Actuator
 @Tag(name = "Logging Management", description = "APIs for viewing and modifying logger levels.")
-@SecurityRequirement(name = "bearerAuth") // Indicates JWT Bearer auth is required
+@SecurityRequirement(name = "bearer-jwt") // Still needed for Swagger UI auth prompt
+@PreAuthorize("hasRole('PLATFORM_OWNER')") // Secure all methods in this controller
 public class LoggingController {
 
     private static final Logger log = LoggerFactory.getLogger(LoggingController.class);
@@ -70,7 +72,7 @@ public class LoggingController {
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     @ReadOperation // For Actuator exposure
-    @Operation(summary = "List all loggers", description = "Retrieves a list of all configured loggers and their effective/configured levels, along with the list of available log levels.")
+    @Operation(summary = "List all loggers", description = "Retrieves a list of all configured loggers and their effective/configured levels, along with the list of available log levels. Requires PLATFORM_OWNER role.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved list of loggers",
                 content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -102,7 +104,7 @@ public class LoggingController {
      */
     @GetMapping(value = "/{name}", produces = MediaType.APPLICATION_JSON_VALUE)
     @ReadOperation // For Actuator exposure
-    @Operation(summary = "Get logger details", description = "Retrieves the details (effective and configured levels) for a specific logger by its name.")
+    @Operation(summary = "Get logger details", description = "Retrieves the details (effective and configured levels) for a specific logger by its name. Requires PLATFORM_OWNER role.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved logger details",
                 content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -111,7 +113,7 @@ public class LoggingController {
         @ApiResponse(responseCode = "403", description = "Forbidden (Requires PLATFORM_OWNER role)", content = @Content),
         @ApiResponse(responseCode = "404", description = "Logger not found", 
                 content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE, 
-                                   schema = @Schema(implementation = LoggerInfo.class))) // Still returns LoggerInfo with null levels
+                                   schema = @Schema(implementation = LoggerInfo.class))) 
     })
     public LoggerInfo getLogger(
             @Parameter(description = "The name of the logger (e.g., 'ROOT', 'ai.skutter')", required = true, example = "ai.skutter") 
@@ -121,7 +123,6 @@ public class LoggingController {
         LoggerConfiguration configuration = loggingSystem.getLoggerConfiguration(name);
         if (configuration == null) {
             log.warn("Logger not found: {}", name);
-            // Return a LoggerInfo indicating not found (levels are null)
             return new LoggerInfo(name, null, null);
         }
         
@@ -137,7 +138,7 @@ public class LoggingController {
      */
     @PostMapping(value = "/{name}")
     @WriteOperation // For Actuator exposure
-    @Operation(summary = "Set logger level", description = "Updates the logging level for a specific logger. Set level to 'null' or omit to clear the specific level setting and inherit from the parent.")
+    @Operation(summary = "Set logger level", description = "Updates the logging level for a specific logger. Set level to 'null' or omit to clear the specific level setting and inherit from the parent. Requires PLATFORM_OWNER role.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully updated logger level",
                 content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
@@ -149,8 +150,12 @@ public class LoggingController {
     public LoggerInfo setLoggerLevel(
             @Parameter(description = "The name of the logger to configure (e.g., 'ROOT', 'ai.skutter')", required = true, example = "ai.skutter") 
             @PathVariable("name") @Selector String name,
-            @Parameter(description = "The log level to set (e.g., 'INFO', 'DEBUG', 'WARN', 'ERROR', 'TRACE', 'OFF', 'null' to reset). Case-insensitive.", required = true, example = "DEBUG") 
-            @RequestParam("level") String level) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "JSON object specifying the desired log level.", required = true,
+                 content = @Content(schema = @Schema(implementation = ConfigureLevelRequest.class),
+                 examples = @io.swagger.v3.oas.annotations.media.ExampleObject(value = "{\n  \"configuredLevel\": \"TRACE\"\n}"))) 
+            @org.springframework.web.bind.annotation.RequestBody ConfigureLevelRequest request) {
+
+        String level = request.getConfiguredLevel();
         log.info("Setting logger '{}' to level: {}", name, level);
         
         LogLevel logLevel = null;
@@ -219,5 +224,20 @@ public class LoggingController {
         // Getters required for schema generation
         public List<String> getLevels() { return levels; }
         public List<LoggerInfo> getLoggers() { return loggers; }
+    }
+
+    /**
+     * DTO for the request body of the setLoggerLevel endpoint.
+     * Mirrors the structure expected by the standard Actuator endpoint.
+     */
+    @Schema(description = "Request body for setting a logger's configured level.")
+    private static class ConfigureLevelRequest {
+        @Schema(description = "The log level to set (e.g., 'INFO', 'DEBUG', 'WARN', 'ERROR', 'TRACE', 'OFF', or 'null'/'empty' to reset). Case-insensitive.",
+                example = "TRACE", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
+        private String configuredLevel;
+
+        // Getter and Setter required for JSON deserialization
+        public String getConfiguredLevel() { return configuredLevel; }
+        public void setConfiguredLevel(String configuredLevel) { this.configuredLevel = configuredLevel; }
     }
 } 

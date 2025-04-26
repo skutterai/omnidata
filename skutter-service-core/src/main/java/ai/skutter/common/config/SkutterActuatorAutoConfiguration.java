@@ -37,7 +37,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import ai.skutter.common.security.role.SkutterRole;
 
@@ -87,8 +89,8 @@ public class SkutterActuatorAutoConfiguration {
             // Base path for actuator endpoints
             String basePath = webEndpointProperties.getBasePath();
             String platformOwnerRole = SkutterRole.PLATFORM_OWNER.name();
+            String platformViewerRole = SkutterRole.PLATFORM_VIEWER.name();
 
-            // Configure security
             http.securityMatcher(basePath + "/**")
                 .authorizeHttpRequests(authorize -> {
                     // Public endpoints - health and info are always public if enabled
@@ -99,47 +101,45 @@ public class SkutterActuatorAutoConfiguration {
                         authorize.requestMatchers(basePath + "/info").permitAll();
                     }
 
-                    // Require PLATFORM_OWNER for sensitive endpoints if authentication is required
+                    // Authenticated endpoints
                     if (properties.isRequireAuthentication()) {
-                        // Standard Actuator endpoints
-                        if (properties.getEndpoints().isLoggers()) {
-                            authorize.requestMatchers(basePath + "/loggers/**").hasRole(platformOwnerRole);
-                        }
-                        if (properties.getEndpoints().isMetrics()) {
-                            authorize.requestMatchers(basePath + "/metrics/**").hasRole(platformOwnerRole);
-                        }
+
+                        // Allow GET access for OWNER and VIEWER to common read-only endpoints
+                        authorize.requestMatchers(HttpMethod.GET,
+                            basePath + "/loggers/**",
+                            basePath + "/skutter-loggers/**",
+                            basePath + "/metrics/**",
+                            basePath + "/beans",
+                            basePath + "/threaddump"
+                        ).hasAnyRole(platformOwnerRole, platformViewerRole);
+
+                        // Allow OWNER only for other methods on loggers (e.g., POST)
+                        authorize.requestMatchers(HttpMethod.POST, basePath + "/loggers/**").hasRole(platformOwnerRole);
+                        authorize.requestMatchers(HttpMethod.POST, basePath + "/skutter-loggers/**").hasRole(platformOwnerRole);
+
+                        // Allow OWNER only for potentially sensitive endpoints (all methods)
                         if (properties.getEndpoints().isEnv()) {
-                            authorize.requestMatchers(basePath + "/env/**").hasRole(platformOwnerRole);
-                        }
-                        if (properties.getEndpoints().isBeans()) {
-                            authorize.requestMatchers(basePath + "/beans/**").hasRole(platformOwnerRole);
-                        }
-                        if (properties.getEndpoints().isThreaddump()) {
-                            authorize.requestMatchers(basePath + "/threaddump/**").hasRole(platformOwnerRole);
+                           authorize.requestMatchers(basePath + "/env/**").hasRole(platformOwnerRole);
                         }
                         if (properties.getEndpoints().isHeapdump()) {
-                            authorize.requestMatchers(basePath + "/heapdump/**").hasRole(platformOwnerRole);
-                        }
-                        
-                        // Custom Skutter endpoints (check if skutter.actuator.endpoints.loggers is true, which is the same condition as LoggingController bean)
-                        if (properties.getEndpoints().isLoggers()) {
-                             authorize.requestMatchers(basePath + "/skutter-loggers/**").hasRole(platformOwnerRole);
+                           authorize.requestMatchers(basePath + "/heapdump/**").hasRole(platformOwnerRole);
                         }
 
-                        // Default for any other actuator endpoint under the base path
-                        authorize.anyRequest().hasRole(platformOwnerRole); 
-                        
+                        // Default for any other actuator request: Require PLATFORM_OWNER
+                        authorize.anyRequest().hasRole(platformOwnerRole);
+
                     } else {
-                        // If authentication is not required, permit all actuator endpoints
+                        // If authentication is not required by config, permit all actuator endpoints
                         authorize.anyRequest().permitAll();
                     }
                 });
 
             // Ensure stateless session management for actuator endpoints
-            http.sessionManagement(session -> session.sessionCreationPolicy(org.springframework.security.config.http.SessionCreationPolicy.STATELESS));
+            http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
-            // Consider disabling CSRF for actuator if not needed or handled differently
-            // http.csrf(csrf -> csrf.disable()); 
+            // Disable CSRF for Actuator endpoints as they are typically not called from browsers
+            // and we use JWT for stateless auth. Re-enable if needed for specific use cases.
+            http.csrf(csrf -> csrf.disable()); 
 
             return http.build();
         }

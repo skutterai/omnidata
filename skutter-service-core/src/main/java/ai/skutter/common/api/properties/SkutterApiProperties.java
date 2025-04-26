@@ -60,7 +60,7 @@ public class SkutterApiProperties {
         /**
          * API version.
          */
-        private String version = "1.0.0";
+        private String version = "1.0";
 
         /**
          * API description.
@@ -85,7 +85,7 @@ public class SkutterApiProperties {
         /**
          * License name.
          */
-        private String licenseName = "Apache 2.0";
+        private String licenseName = "Copyright Skutter.ai";
 
         /**
          * License URL.

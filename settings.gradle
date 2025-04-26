@@ -4,4 +4,5 @@ plugins {
 
 rootProject.name = 'omnidata'
 include 'skutter-service-core'
+include 'skutter-project-service'
 // Add other modules here if you have them 

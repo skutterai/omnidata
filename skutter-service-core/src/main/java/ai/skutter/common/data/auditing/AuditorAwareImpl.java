@@ -23,14 +23,13 @@ import ai.skutter.common.security.jwt.SupabaseUserDetails;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
 /**
  * Implementation of AuditorAware to provide the current user ID for auditing fields.
+ * This class is instantiated via AuditingConfig, so @Component is removed.
  */
-@Component
 public class AuditorAwareImpl implements AuditorAware<String> {
 
     @Override
@@ -44,9 +43,11 @@ public class AuditorAwareImpl implements AuditorAware<String> {
                         return Optional.ofNullable(((SupabaseUserDetails) principal).getUserId());
                     } else if (principal instanceof String) {
                         // Handle cases where principal is just a String (e.g., system processes)
-                        return Optional.of((String) principal);
+                        // Consider if "system" is more appropriate here too
+                        return Optional.of((String) principal); 
                     } else {
                         // Fallback or anonymous user
+                        // Use a consistent identifier like "system" or "anonymous"
                         return Optional.of("system"); 
                     }
                 });

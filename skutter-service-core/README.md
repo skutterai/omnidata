@@ -121,20 +121,20 @@ java -jar build/libs/your-application.jar flyway validate
 1.  **Publish the library:** Ensure this library is built (`./gradlew build`) and published to an accessible repository (e.g., GitHub Packages).
 2.  **Add Dependency:** In the consuming service's `build.gradle`:
     ```gradle
-    repositories {
-        mavenCentral()
+repositories {
+    mavenCentral()
         // Add repository where skutter-service-core is published
-        maven {
+    maven {
             name = 'GitHubPackages' // Or your repository name
             url = uri('https://maven.pkg.github.com/skutter/skutter-service-core') // Or your repo URL
             credentials { /* ... credentials ... */ }
-        }
     }
+}
 
-    dependencies {
+dependencies {
         implementation 'ai.skutter.common:skutter-service-core:0.1.0-SNAPSHOT' // Use the correct version
-    }
-    ```
+}
+```
 
 ### Configuration
 

@@ -1,0 +1,238 @@
+server:
+  port: ${SERVER_PORT:8081}
+  servlet:
+    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/1.0/skutter-project-service}
+  http2:
+    enabled: true
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain
+    min-response-size: 1024
+  forward-headers-strategy: native
+
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:skutter-project-service}
+  
+  # Add this section back
+  main:
+    allow-bean-definition-overriding: true
+
+  # Profiles configuration
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+    
+  # Jackson configuration
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+  
+  # Database Configuration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/skutter}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
+      connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT:600000}
+      max-lifetime: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:1800000}
+      validation-timeout: ${SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT:5000}
+
+  # Flyway Configuration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: public
+    placeholders:
+      timezone: UTC
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          lob.non_contextual_creation: true
+    show-sql: ${SPRING_JPA_SHOW_SQL:true}
+
+# Skutter Framework Configuration
+skutter:
+  # Skutter Security 
+  security:
+    enabled: ${SKUTTER_SECURITY_ENABLED:true}
+    
+    https:
+      enabled: ${SKUTTER_HTTPS_ENABLED:true}
+      port: ${SKUTTER_HTTPS_PORT:8443}
+      keystore-path: ${SKUTTER_HTTPS_KEYSTORE_PATH:classpath:keystore/keystore.p12}
+      keystore-password: ${SKUTTER_HTTPS_KEYSTORE_PASSWORD:changeit}
+      keystore-type: ${SKUTTER_HTTPS_KEYSTORE_TYPE:PKCS12}
+      keystore-alias: ${SKUTTER_HTTPS_KEYSTORE_ALIAS:skutter}
+      hsts-enabled: ${SKUTTER_HTTPS_HSTS_ENABLED:true}
+      hsts-max-age-seconds: ${SKUTTER_HTTPS_HSTS_MAX_AGE_SECONDS:31536000}
+      hsts-include-sub-domains: ${SKUTTER_HTTPS_HSTS_INCLUDE_SUB_DOMAINS:true}
+      hsts-preload: ${SKUTTER_HTTPS_HSTS_PRELOAD:false}
+
+    jwt:
+      secret: ${JWT_SECRET:your-secret-key-here-at-least-32-chars}
+      issuer: ${JWT_ISSUER_URL:https://api.supabase.co/auth/v1}
+      validate-expiration: ${JWT_VALIDATE_EXPIRATION:true}
+      validate-issuer: ${JWT_VALIDATE_ISSUER:true}
+      role-claim: ${JWT_ROLE_CLAIM:app_metadata.skutter_role}
+      user-id-claim: ${JWT_USER_ID_CLAIM:sub}
+      set-postgres-user-id: ${JWT_SET_POSTGRES_USER_ID:true}
+
+    # Paths that don't require authentication
+    public-paths:
+      - /actuator/health/**
+      - /actuator/info
+      - /v3/api-docs/**
+      - /swagger-ui/**
+      - /swagger-ui.html
+      - /health
+      - /public/**
+
+    cors:
+      enabled: ${SKUTTER_CORS_ENABLED:true}
+      allowed-origins:
+        - ${SKUTTER_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+      allowed-methods: ${SKUTTER_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
+      allowed-headers: ${SKUTTER_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,X-Requested-With,X-Correlation-ID}
+      allow-credentials: ${SKUTTER_CORS_ALLOW_CREDENTIALS:true}
+      max-age: ${SKUTTER_CORS_MAX_AGE:3600}
+
+  # API Configuration
+  api:
+    rate-limit:
+      enabled: ${SKUTTER_API_RATE_LIMIT_ENABLED:true}
+      limit: ${SKUTTER_API_RATE_LIMIT_LIMIT:60}
+      refresh-period: ${SKUTTER_API_RATE_LIMIT_REFRESH_PERIOD:60s}
+      
+    documentation:
+      enabled: true
+      title: Skutter Project Service API
+      version: 1.0
+      description: API for managing projects and user assignments in the Skutter platform
+      contact-name: Skutter Development Team
+      contact-email: dev@skutter.ai
+      contact-url: https://skutter.ai
+      license-name: Copyright Skutter.ai
+      #license-url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+  # Data Configuration
+  data:
+    enable-user-id-propagation: ${SKUTTER_DATA_ENABLE_USER_ID_PROPAGATION:true}
+    post-gis:
+      enabled: ${SKUTTER_DATA_POSTGIS_ENABLED:true}
+      default-srid: ${SKUTTER_DATA_POSTGIS_DEFAULT_SRID:4326}
+
+  # Observability Configuration  
+  observability:
+    correlation:
+      header-name: ${SKUTTER_CORRELATION_HEADER_NAME:X-Correlation-ID}
+      generate-if-missing: ${SKUTTER_CORRELATION_GENERATE_IF_MISSING:true}
+      propagate-to-downstream: ${SKUTTER_CORRELATION_PROPAGATE_TO_DOWNSTREAM:true}
+
+    logging:
+      level: INFO
+      include-correlation-id: true
+      include-user-id: true
+      include-request-details: true
+
+# Standard Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,metrics,prometheus,loggers}
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when_authorized}
+  health:
+    circuitbreakers:
+      enabled: ${MANAGEMENT_HEALTH_CIRCUITBREAKERS_ENABLED:true}
+    ratelimiters:
+      enabled: ${MANAGEMENT_HEALTH_RATELIMITERS_ENABLED:true}
+  metrics:
+    enable:
+      all: false
+      jvm: true
+      system: true
+      process: true
+      diskspace: true
+      logback: true
+      logging: true
+      executor: true
+      tomcat: true
+      http.client.requests: true
+      http.server.requests: true
+      spring.data.repository: true
+      resilience4j: true
+      "HikariCP Connections": true
+    export:
+      prometheus:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true}
+  prometheus:
+    metrics:
+      export:
+        enabled: ${MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED:true}
+
+# Logging Configuration
+logging:
+  file:
+    name: ${LOGGING_FILE_NAME:${LOG_PATH:./logs}/skutter-project-service.log}
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${logging.file.name}.%d{yyyy-MM-dd}.%i.log.gz
+      max-file-size: ${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE:10MB}
+      max-history: ${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY:30}
+      total-size-cap: ${LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP:3GB}
+      clean-history-on-start: false
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} [%X{correlationId:-}] %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{correlationId:-}] - %msg%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
+  level:
+    root: INFO
+    ai.skutter.common.api.ratelimit: TRACE
+    org.hibernate.SQL: DEBUG
+    # ai.skutter.common.api.ratelimit: TRACE 
+    # Set to DEBUG to see SQL parameters in logs
+    org.hibernate.type.descriptor.sql: TRACE
+    org.apache.coyote: WARN
+    org.springframework: DEBUG
+    org.springframework.web: DEBUG
+    # Add these specific loggers for JWT authentication:
+    org.springframework.security.core: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.security.oauth2: DEBUG
+    org.springframework.security.oauth2.jwt: DEBUG
+    org.springframework.security.authentication: DEBUG
+    org.springframework.security.web.authentication: DEBUG
+
+# SpringDoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: ${SPRINGDOC_API_DOCS_PATH:/v3/api-docs}
+  swagger-ui:
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+    operationsSorter: method
+  show-actuator: ${SPRINGDOC_SHOW_ACTUATOR:true}
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+
+# Actuator Info Endpoint Configuration (Commented out to avoid YAML error)
+# info:
+#   app:
+#     name: @project.name@
+#     description: @project.description@
+#     version: @project.version@

@@ -29,7 +29,7 @@ The `skutter-service-core` library includes reusable components for:
 ### Prerequisites
 
 *   Java 17 (Adoptium Temurin recommended)
-*   Gradle (uses wrapper, `./gradlew`)
+    *   Gradle (uses wrapper, `./gradlew`)
 *   Docker and Docker Compose (for running dependencies like PostgreSQL)
 *   Access to a Supabase project (for integration tests requiring JWT validation)
 
