@@ -55,17 +55,7 @@ else
 fi
 
 # Create a table to mark database initialization
-log "Creating initialization marker..."
-psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "
-CREATE TABLE IF NOT EXISTS db_init_info (
-  id SERIAL PRIMARY KEY,
-  initialized_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  version TEXT,
-  initialized_by TEXT
-);
-INSERT INTO db_init_info (version, initialized_by) 
-VALUES ('1.0', 'docker-db-prep');" 2>&1 | tee -a $LOG_FILE
-
+log "Creating initialization marker /tmp/db_created..."
 # Create a flag file to indicate completion
 touch /tmp/db_created
 
