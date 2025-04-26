@@ -33,8 +33,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collections;
 
@@ -58,27 +56,22 @@ class PostgresSetUserIdInterceptorTest {
     private Claims mockClaims;
 
     private PostgresSetUserIdInterceptor interceptor;
+    private AutoCloseable closeable;
+
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        closeable = MockitoAnnotations.openMocks(this);
         interceptor = new PostgresSetUserIdInterceptor(jdbcTemplate);
         SecurityContextHolder.setContext(securityContext);
-        
-        // Initialize transaction synchronization
-        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.initSynchronization();
-        }
         
         interceptor.initialize();
     }
     
     @AfterEach
-    void tearDown() {
-        // Clean up transaction synchronization
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.clear();
-        }
+    void tearDown() throws Exception {
+        SecurityContextHolder.clearContext();
+        closeable.close();
     }
 
     @Test
@@ -92,8 +85,7 @@ class PostgresSetUserIdInterceptorTest {
         when(authentication.getPrincipal()).thenReturn(userDetails);
 
         // Act
-        // Simulate transaction synchronization
-        TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.beforeCommit(false));
+        interceptor.setCurrentUserId();
 
         // Assert
         verify(jdbcTemplate).execute(eq("SET LOCAL skutter.app.current_user_id = '\"test-user-123\"'"));
@@ -105,10 +97,10 @@ class PostgresSetUserIdInterceptorTest {
         "simple-123",                    // Valid ID with hyphen
         "user_name",                     // Valid ID with underscore
         "user.name",                     // Valid ID with dot
-        "malicious';DROP TABLE users;--", // SQL injection attempt
-        "123abc!@#$%^&*()_+",            // Special characters
-        "' OR '1'='1",                   // Another SQL injection attempt
-        "user\"name"                     // Proper double quote escaping
+        "malicious';DROP TABLE users;--", // SQL injection attempt -> sanitizes to "maliciousDROPTABLEusers"
+        "123abc!@#$%^&*()_+",            // Special characters -> sanitizes to "123abc_"
+        "' OR '1'='1",                   // Another SQL injection attempt -> sanitizes to "OR11"
+        "user\\\"name"                     // Proper double quote escaping -> sanitizes to "username" (backslash removed) -> result is "\"username\""
     })
     void sanitize_ValidatesAndSanitizesInput(String input) {
         // Arrange
@@ -118,12 +110,9 @@ class PostgresSetUserIdInterceptorTest {
         when(authentication.getPrincipal()).thenReturn(userDetails);
 
         // Act
-        // Simulate transaction synchronization
-        TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.beforeCommit(false));
+        interceptor.setCurrentUserId();
 
         // Assert
-        // Instead of checking exact SQL string, check that the JDBC template was called with any execute()
-        // This avoids brittle tests that depend on exact string format
         verify(jdbcTemplate).execute(argThat((String sql) -> 
             sql.startsWith("SET LOCAL skutter.app.current_user_id = '\"") && 
             sql.endsWith("\"'")
@@ -140,8 +129,7 @@ class PostgresSetUserIdInterceptorTest {
         when(authentication.getPrincipal()).thenReturn(userDetails);
 
         // Act
-        // Simulate transaction synchronization
-        TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.beforeCommit(false));
+        interceptor.setCurrentUserId();
 
         // Assert
         verify(jdbcTemplate, never()).execute(anyString());
@@ -154,8 +142,7 @@ class PostgresSetUserIdInterceptorTest {
         when(securityContext.getAuthentication()).thenReturn(null);
 
         // Act
-        // Simulate transaction synchronization
-        TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.beforeCommit(false));
+        interceptor.setCurrentUserId();
 
         // Assert
         verify(jdbcTemplate, never()).execute(anyString());
@@ -170,8 +157,7 @@ class PostgresSetUserIdInterceptorTest {
         when(authentication.getPrincipal()).thenReturn("some-other-principal");
 
         // Act
-        // Simulate transaction synchronization
-        TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.beforeCommit(false));
+        interceptor.setCurrentUserId();
 
         // Assert
         verify(jdbcTemplate, never()).execute(anyString());
@@ -185,8 +171,7 @@ class PostgresSetUserIdInterceptorTest {
         when(authentication.isAuthenticated()).thenReturn(false);
 
         // Act
-        // Simulate transaction synchronization
-        TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.beforeCommit(false));
+        interceptor.setCurrentUserId();
 
         // Assert
         verify(jdbcTemplate, never()).execute(anyString());

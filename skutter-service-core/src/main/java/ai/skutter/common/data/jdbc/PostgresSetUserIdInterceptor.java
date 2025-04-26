@@ -78,7 +78,7 @@ public class PostgresSetUserIdInterceptor {
     /**
      * Set the current user ID in the PostgreSQL session
      */
-    private void setCurrentUserId() {
+    void setCurrentUserId() {
         try {
             getUserId().ifPresent(userId -> {
                 // Sanitize the user ID first

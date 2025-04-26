@@ -1,205 +1,117 @@
-# Skutter Common Framework Library
+# Skutter Service Core Library
 
-A production-ready Spring Boot library that serves as a shared dependency for microservices. This library provides standardized components for security, API handling, database access, observability, and more.
+A production-ready Spring Boot library providing common components and configurations for Skutter microservices.
 
-## Features
+## Overview
+
+This library standardizes common concerns across microservices, including:
+
+*   **Security:** JWT processing (Supabase), Role-based access, CORS, Security logging.
+*   **REST API:** Standardized error handling, Rate limiting, Circuit breaking (Resilience4j), OpenAPI docs, Pagination models.
+*   **Data Access:** JPA configuration, PostgreSQL optimizations, PostGIS support, **Flyway database migrations**.
+*   **Observability:** Correlation IDs, Prometheus metrics, Actuator extensions, MDC logging.
+*   **Utilities:** Environment configuration, Null-safety, Date/time handling, Encryption, ID generation, Type identification.
+*   **CLI Support:** Provides a `CommandLineRunner` (`FlywayCommandRunner`) for executing tasks like database migrations independently.
+
+## Features In Detail
 
 ### Security
-- Complete OAuth2 integration with Supabase, focusing on JWT processing
-- Security logging filter for debugging
-- Postgres user ID propagation via SET LOCAL
-- Custom JWT claim extraction for `skutter_role` from `app_metadata`
-- Role-based authorization utilities
-- Certificate loading and hot-reloading mechanisms
+*   **JWT:** Integrates with Supabase Auth for token validation. Extracts custom `skutter_role` claim. Configurable via `skutter.security.jwt.*` properties. Requires `JWT_SECRET` environment variable or `skutter.security.jwt.secret` property matching your Supabase secret.
+*   **Roles:** Defines `SkutterRole` enum and provides `SupabaseUserDetails` for easy access to user ID and authorities. Enables method security with `@PreAuthorize`.
+*   **CORS:** Configurable CORS policy.
+*   **User ID Propagation:** Optionally propagates authenticated user ID to PostgreSQL using `SET LOCAL skutter.app.current_user_id = ?`. Enabled via `skutter.security.jwt.set-postgres-user-id=true`.
 
 ### REST API
-- Standardized error handling with global exception advisors
-- Rate limiting with configurable strategies
-- Circuit breaker patterns using Resilience4j
-- Response compression and caching strategies
-- Comprehensive OpenAPI/Swagger documentation
+*   **Error Handling:** `GlobalExceptionHandler` provides standardized JSON error responses (`ErrorResponse`).
+*   **Rate Limiting:** Configurable request rate limiting via `skutter.api.rate-limit.*`.
+*   **Resilience:** Integrates Resilience4j for Circuit Breaker patterns (`skutter.api.resilience.*`).
+*   **Documentation:** Auto-generates OpenAPI v3 specification. Configurable via `skutter.api.documentation.*`.
+*   **Pagination:** Standard `PagedResponse`, `CursorPageRequest`, `OffsetPageRequest`.
 
 ### Data Access
-- JPA configuration with connection pooling best practices
-- PostgreSQL specific optimizations
-- PostGIS support with proper type handling
-- Database migration support with Flyway
+*   **JPA:** Configures JPA, connection pooling (HikariCP).
+*   **Auditing:** Enables JPA auditing (`@CreatedDate`, `@LastModifiedDate`, etc.).
+*   **PostGIS:** Includes `hibernate-spatial` and configures the PostgreSQL dialect for spatial types.
+*   **Flyway Database Migrations:**
+    *   Integrates Flyway for schema management. Enabled by default (`spring.flyway.enabled=true`).
+    *   Looks for migration scripts in `classpath:db/migration`.
+    *   Requires scripts named `V<VERSION>__<DESCRIPTION>.sql` (e.g., `V1_0__Create_projects_table.sql`).
+    *   Applications using this library can run migrations automatically on startup or manually via the CLI (see below).
+    *   Provides Gradle tasks (`flywayMigrate`, `flywayInfo`, etc.) configured to use environment variables (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` or fallbacks like `SKUTTER_DB_URL`).
 
 ### Observability
-- Correlation ID propagation across services
-- Prometheus metrics exporters
-- Spring Boot Actuator extensions
-- Health check interfaces
-- MDC logging support
+*   **Correlation IDs:** `CorrelationIdFilter` generates/propagates IDs via headers (default: `X-Correlation-ID`) and MDC.
+*   **Metrics:** Configures Micrometer for Prometheus endpoint (`/actuator/prometheus`). Adds common tags.
+*   **Logging:** Provides utilities and an Actuator endpoint (`/actuator/loggers`) for managing log levels.
+
+### Command-Line Interface (CLI)
+*   **Purpose:** Allows running specific tasks from the command line using the application's configured context, without starting the full application (e.g., web server).
+*   **Implementation:** Uses `FlywayCommandRunner` (an implementation of `CommandLineRunner` and `ExitCodeGenerator`).
+*   **Usage:** When an application using this library is packaged as an executable JAR, you can invoke tasks like Flyway migrations:
+    ```bash
+    # Ensure DB connection details are available via env vars or application properties
+    java -jar your-application.jar flyway migrate
+    java -jar your-application.jar flyway info
+    ```
+*   **Activation:** The `FlywayCommandRunner` is active only if a `Flyway` bean is present in the application context (`@ConditionalOnBean(Flyway.class)`).
+*   **Extensibility:** The runner is designed to be extended with more commands by adding them to `SUPPORTED_COMMANDS` and the `switch` statement in `FlywayCommandRunner.java`.
 
 ### Utilities
-- Environment variable configuration
-- Null-safety patterns
-- Date/time handling utilities with timezone awareness
-- Encryption helpers
-- Response object builders
+*   `DeterministicIdGenerator`: Creates stable short IDs.
+*   `TypeIdentifier`: Detects common data types.
+*   `DataSize`: Utilities for handling data sizes (KB, MB, etc.).
 
 ## Getting Started
 
 ### Prerequisites
-- Java 17 or higher
-- Gradle 8.x
+*   Java 17+
+*   Gradle 8.x
 
-### Installation
+### Installation (for consuming services)
 
-Add the following to your `build.gradle`:
-
-```groovy
-repositories {
-    mavenCentral()
-    maven {
-        name = 'GitHubPackages'
-        url = uri('https://maven.pkg.github.com/skutter/skutter-service-core')
-        credentials {
-            username = project.findProperty('gpr.user') ?: System.getenv('GITHUB_USERNAME')
-            password = project.findProperty('gpr.key') ?: System.getenv('GITHUB_TOKEN')
+1.  **Publish the library:** Ensure this library is built (`./gradlew build`) and published to an accessible repository (e.g., GitHub Packages).
+2.  **Add Dependency:** In the consuming service's `build.gradle`:
+    ```gradle
+    repositories {
+        mavenCentral()
+        // Add repository where skutter-service-core is published
+        maven {
+            name = 'GitHubPackages' // Or your repository name
+            url = uri('https://maven.pkg.github.com/skutter/skutter-service-core') // Or your repo URL
+            credentials { /* ... credentials ... */ }
         }
     }
-}
 
-dependencies {
-    implementation 'ai.skutter.common:skutter-common-framework:0.1.0-SNAPSHOT'
-}
-```
+    dependencies {
+        implementation 'ai.skutter.common:skutter-service-core:0.1.0-SNAPSHOT' // Use the correct version
+    }
+    ```
 
 ### Configuration
 
-The library uses Spring Boot's auto-configuration, so most components are automatically configured. You can customize behavior with the following properties in your `application.yml`:
+The library uses Spring Boot auto-configuration. Customize behavior via `application.yml` or environment variables. Key prefixes:
 
-```yaml
-skutter:
-  security:
-    enabled: true
-    jwt:
-      secret: your-jwt-secret-here
-      # OR
-      public-key-path: classpath:public-key.pem
-      issuer: https://api.supabase.co/auth/v1
-      validate-expiration: true
-      validate-issuer: true
-      role-claim: app_metadata.skutter_role
-      set-postgres-user-id: true
-    public-paths:
-      - /actuator/health/**
-      - /v3/api-docs/**
-  
-  api:
-    rate-limit:
-      enabled: true
-      limit: 100
-      refresh-period: 1m
-    documentation:
-      title: Your API Title
-      version: 1.0.0
-      description: API Description
-    resilience:
-      circuit-breaker-enabled: true
-      failure-threshold: 50
-  
-  data:
-    enable-user-id-propagation: true
-    flyway:
-      enabled: true
-      locations: classpath:db/migration
-    postgis:
-      enabled: true
-      default-srid: 4326
-  
-  observability:
-    correlation:
-      header-name: X-Correlation-ID
-      generate-if-missing: true
-    metrics:
-      application-name: your-application-name
-    logging:
-      include-correlation-id: true
-```
+*   `skutter.security.*`
+*   `skutter.api.*`
+*   `skutter.data.*`
+*   `skutter.observability.*`
+*   `skutter.actuator.*`
+*   `spring.flyway.*` (Standard Spring Boot Flyway properties)
+*   `spring.datasource.*` (Standard Spring Boot Datasource properties)
 
-## Usage Examples
+**Essential Configuration:**
 
-### Security - Setting up Supabase Authentication
+*   **Database:** `spring.datasource.url`, `spring.datasource.username`, `spring.datasource.password` are needed for Flyway and JPA.
+*   **JWT Security:** `skutter.security.jwt.secret` (or `JWT_SECRET` env var) and `skutter.security.jwt.issuer` (or `JWT_ISSUER` env var) matching your Supabase configuration.
 
-```java
-@RestController
-@RequestMapping("/api")
-public class SecuredController {
+## Building and Testing This Library
 
-    @GetMapping("/private")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<String> privateEndpoint(Authentication auth) {
-        SupabaseUserDetails userDetails = (SupabaseUserDetails) auth.getPrincipal();
-        String userId = userDetails.getUserId();
-        return ResponseEntity.ok("Hello, " + userId);
-    }
-}
-```
-
-### API - Adding Rate Limiting
-
-Rate limiting is automatically applied to all endpoints. You can customize it in your application.yml:
-
-```yaml
-skutter:
-  api:
-    rate-limit:
-      enabled: true
-      limit: 100  # requests per refresh period
-      refresh-period: 1m  # 1 minute
-```
-
-### Database - Setting up Flyway Migrations
-
-```yaml
-skutter:
-  data:
-    flyway:
-      enabled: true
-      locations: classpath:db/migration
-      baseline-on-migrate: true
-```
-
-### Observability - Correlation ID Tracking
-
-Correlation IDs are automatically added to all requests and responses, and are available in logs through MDC:
-
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-@Service
-public class YourService {
-    private static final Logger log = LoggerFactory.getLogger(YourService.class);
-    
-    public void doSomething() {
-        // The correlation ID will automatically be included in the log output
-        log.info("Processing something important");
-    }
-}
-```
-
-## Publishing
-
-To publish the library to GitHub Packages:
-
-```shell
-export GITHUB_ACTOR=your-github-username
-export GITHUB_TOKEN=your-github-token
-./gradlew publish
-```
-
-## License
-
-This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
+Refer to the [main project README](../README.md) for instructions on building the project and running unit/integration tests.
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request 
+(Add specific contribution guidelines for this module if different from the main project).
+
+## License
+
+Apache License 2.0 
