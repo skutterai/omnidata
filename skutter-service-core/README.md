@@ -47,14 +47,63 @@ This library standardizes common concerns across microservices, including:
 ### Command-Line Interface (CLI)
 *   **Purpose:** Allows running specific tasks from the command line using the application's configured context, without starting the full application (e.g., web server).
 *   **Implementation:** Uses `FlywayCommandRunner` (an implementation of `CommandLineRunner` and `ExitCodeGenerator`).
-*   **Usage:** When an application using this library is packaged as an executable JAR, you can invoke tasks like Flyway migrations:
+
+#### Flyway Database Management Commands
+
+The CLI provides direct access to Flyway database migration commands. This is useful for applying migrations manually or inspecting the database state without running the full service.
+
+##### Prerequisites
+
+1.  **Build the Application:** Ensure the service is built into an executable JAR file:
     ```bash
-    # Ensure DB connection details are available via env vars or application properties
-    java -jar your-application.jar flyway migrate
-    java -jar your-application.jar flyway info
+    ./gradlew bootJar
     ```
-*   **Activation:** The `FlywayCommandRunner` is active only if a `Flyway` bean is present in the application context (`@ConditionalOnBean(Flyway.class)`).
-*   **Extensibility:** The runner is designed to be extended with more commands by adding them to `SUPPORTED_COMMANDS` and the `switch` statement in `FlywayCommandRunner.java`.
+    This creates a JAR file in the `build/libs/` directory.
+
+2.  **Configuration:** The CLI uses the same configuration as the main application. Ensure database connection details are available via:
+    *   Environment variables (`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`)
+    *   Application properties files
+    *   System properties when running the command
+
+##### Supported Commands
+
+Run commands using the format: `java -jar your-application.jar flyway <command>`
+
+*   `flyway info`
+    Displays the status of all migrations (current version, applied migrations, pending migrations).
+
+*   `flyway migrate`
+    Applies any pending migrations to the database schema.
+
+*   `flyway validate`
+    Validates the applied migrations against the ones available on the classpath.
+
+*   `flyway clean`
+    **WARNING:** Drops all objects within the configured database schemas. Use with extreme caution, typically only in development/testing.
+
+##### Examples
+
+```bash
+# Apply migrations using dev profile
+java -Dspring.profiles.active=dev -jar build/libs/your-application.jar flyway migrate
+
+# Check migration status
+java -jar build/libs/your-application.jar flyway info
+
+# Validate migrations
+java -jar build/libs/your-application.jar flyway validate
+```
+
+##### Exit Codes
+*   `0`: Success
+*   `1`: Command failed during execution
+*   `2`: Invalid/unsupported command
+*   `3`: Unhandled internal error
+
+##### Technical Details
+*   The `FlywayCommandRunner` is active only if a `Flyway` bean is present (`@ConditionalOnBean(Flyway.class)`).
+*   Disabled in the "test" profile by default.
+*   Can be extended with more commands by modifying `SUPPORTED_COMMANDS` and the command handling logic.
 
 ### Utilities
 *   `DeterministicIdGenerator`: Creates stable short IDs.
