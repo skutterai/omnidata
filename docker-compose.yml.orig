@@ -1,0 +1,114 @@
+services:
+  # PostgreSQL Database Service
+  postgres:
+    image: postgis/postgis:15-3.4-alpine # Use PostgreSQL 15 with PostGIS 3.4
+    container_name: omnidata_postgres
+    environment:
+      # Use standard Spring vars from .env for Postgres init
+      POSTGRES_USER: ${SPRING_DATASOURCE_USERNAME:-postgres} 
+      POSTGRES_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-your_secure_password} 
+      POSTGRES_DB: postgres # Start with default postgres db for init script to work
+      PGDATA: /var/lib/postgresql/data/pgdata # Data directory
+      # Make sure the locale is available
+      LANG: en_GB.utf8
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/pgdata # Persist data
+      - ./logs/postgres:/var/log/postgresql # Mount logs directory
+    ports:
+      - "${PG_PORT:-5432}:5432" # Expose port from .env or default
+    healthcheck:
+      # Check against the default postgres database
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - skutter-net
+
+  # DB Prep Service - Only creates the skutter database and enables extensions
+  db-prep:
+    build:
+      context: ./
+      dockerfile: Dockerfile.db-prep
+    container_name: omnidata_db_prep
+    volumes:
+      - ./scripts/create-skutter-db.sh:/create-skutter-db.sh
+      - ./logs/db-prep:/var/log # Mount logs directory
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Override the entrypoint to use shell
+    entrypoint: /bin/sh
+    # Use our custom script
+    command: /create-skutter-db.sh
+    environment:
+      # Explicitly set environment variables
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-your_secure_password}
+      SKUTTER_DB: ${SKUTTER_DB:-skutter}
+    networks:
+      - skutter-net
+
+  # Main Application Service - Will use database created by db-prep
+  # Note: Each service should have its own build section referencing its local Dockerfile
+  skutter-service-core:
+    build:
+      context: ./skutter-service-core
+      dockerfile: Dockerfile
+    container_name: skutter_service_core
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-prep:
+        condition: service_completed_successfully
+    volumes:
+      - ./logs/skutter-service-core:/app/logs # Mount logs directory
+    environment:
+      # Define standard Spring Boot datasource variables
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${SKUTTER_DB:-skutter}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-your_secure_password}
+      
+      # Flyway configuration
+      SPRING_FLYWAY_ENABLED: "true"
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      
+      # Configure logging to file
+      LOGGING_FILE_NAME: /app/logs/service.log
+      LOGGING_FILE_MAX_SIZE: 10MB
+      LOGGING_FILE_MAX_HISTORY: 10
+      
+      # Supabase configuration (if used)
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      
+      # Spring Boot profile
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      
+      # Server port (internal)
+      PORT: 8080
+      
+      # JVM Options
+      JAVA_TOOL_OPTIONS: "-Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
+      
+    ports:
+      - "${SERVICE_PORT:-8080}:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - skutter-net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  skutter-net:
+    driver: bridge 

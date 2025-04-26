@@ -53,7 +53,7 @@ public class PostgresSetUserIdInterceptor {
     public void initialize() {
         if (enabled) {
             log.info("PostgreSQL user ID propagation is enabled");
-            registerTransactionSynchronization();
+            // registerTransactionSynchronization(); // Commented out - Registration should happen within an active transaction context
         } else {
             log.info("PostgreSQL user ID propagation is disabled");
         }
@@ -87,7 +87,7 @@ public class PostgresSetUserIdInterceptor {
                 // Only proceed if sanitization didn't result in null value
                 if (sanitizedUserId != null) {
                     // Set user ID as a local variable in the PostgreSQL session
-                    jdbcTemplate.execute("SET LOCAL skutter.user_id = '" + sanitizedUserId + "'");
+                    jdbcTemplate.execute("SET LOCAL skutter.app.current_user_id = '" + sanitizedUserId + "'");
                     log.debug("Set PostgreSQL session user_id to: {}", userId);
                 } else {
                     log.warn("Cannot set PostgreSQL user_id - sanitization resulted in null value for input: {}", userId);

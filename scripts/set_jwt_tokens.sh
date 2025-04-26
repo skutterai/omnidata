@@ -51,17 +51,17 @@ get_and_update_token() {
 }
 
 # Fetch and update tokens
-get_and_update_token "superadmin@iglooa.com" "L3m0nJucdietc0kAc01a!" "JWT_SUPER_ADMIN_TOKEN" "SUPER_ADMIN" 
-get_and_update_token "globalreader@iglooa.com" "L3m0nJucdietc0kAc01a!" "JWT_GLOBAL_READER_TOKEN" "GLOBAL_READER"
-get_and_update_token "tenantadmin@iglooa.com" "L3m0nJucdietc0kAc01a!" "JWT_TENANT_ADMIN_TOKEN" "TENANT_ADMIN"
-get_and_update_token "tenantuser@iglooa.com" "L3m0nJucdietc0kAc01a!" "JWT_TENANT_USER_TOKEN" "TENANT_USER"
+get_and_update_token "platformowner@skutter.ai" "letmein" "JWT_PLATFORM_OWNER_TOKEN" "PLATFORM_OWNER" 
+get_and_update_token "platformviewer@skutter.ai" "letmein" "JWT_PLATFORM_VIEWER_TOKEN" "PLATFORM_VIEWER"
+get_and_update_token "projectadmin@skutter.ai" "letmein" "JWT_PROJECT_ADMIN_TOKEN" "PROJECT_ADMIN"
+get_and_update_token "projectviewer@skutter.ai" "letmein" "JWT_PROJECT_VIEWER_TOKEN" "PROJECT_VIEWER"
 
 # Verify
 echo 
 echo "--- JWT Tokens (First 30 chars) ---"
-echo "JWT_SUPER_ADMIN_TOKEN: ${JWT_SUPER_ADMIN_TOKEN:0:30}..."
-echo "JWT_GLOBAL_READER_TOKEN: ${JWT_GLOBAL_READER_TOKEN:0:30}..."
-echo "JWT_TENANT_ADMIN_TOKEN: ${JWT_TENANT_ADMIN_TOKEN:0:30}..."
-echo "JWT_TENANT_USER_TOKEN: ${JWT_TENANT_USER_TOKEN:0:30}..."
+echo "JWT_PLATFORM_OWNER_TOKEN: ${JWT_PLATFORM_OWNER_TOKEN:0:30}..."
+echo "JWT_PLATFORM_VIEWER_TOKEN: ${JWT_PLATFORM_VIEWER_TOKEN:0:30}..."
+echo "JWT_PROJECT_ADMIN_TOKEN: ${JWT_PROJECT_ADMIN_TOKEN:0:30}..."
+echo "JWT_PROJECT_VIEWER_TOKEN: ${JWT_PROJECT_VIEWER_TOKEN:0:30}..."
 echo
 echo "Remember to run this script with 'source ./set_jwt_tokens.sh' to export variables to your current shell"

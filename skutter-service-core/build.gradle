@@ -9,6 +9,8 @@ plugins {
     id 'checkstyle'
     id 'io.freefair.lombok' version '8.4'
     id 'org.springdoc.openapi-gradle-plugin' version '1.8.0'
+    id 'com.google.cloud.tools.jib' version '3.4.5'
+    id 'org.flywaydb.flyway' version '9.22.3'
 }
 
 group = 'ai.skutter.common'
@@ -36,6 +38,24 @@ bootJar {
 jar {
     enabled = true
     archiveClassifier.set('')
+}
+
+// Create sourceSets for integration tests
+sourceSets {
+    integrationTest {
+        java {
+            compileClasspath += main.output + test.output
+            runtimeClasspath += main.output + test.output
+            srcDir file('src/integration-test/java')
+        }
+        resources.srcDir file('src/integration-test/resources')
+    }
+}
+
+// Define custom configurations BEFORE the dependencies block
+configurations {
+    integrationTestImplementation.extendsFrom testImplementation
+    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 dependencies {
@@ -83,6 +103,7 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers:1.19.6'
     testImplementation 'org.testcontainers:junit-jupiter:1.19.6'
     testImplementation 'org.testcontainers:postgresql:1.19.6'
+    testImplementation 'org.mockito:mockito-junit-jupiter:5.7.0'
     
     // Utilities
     implementation 'com.google.guava:guava:33.0.0-jre'
@@ -102,29 +123,72 @@ dependencies {
     
     // Spring Boot Actuator for health, metrics, etc.
     api 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Add Mockito JUnit 5 integration for integration tests as well
+    integrationTestImplementation 'org.mockito:mockito-junit-jupiter:5.7.0'
 }
 
-// Create sourceSets for integration tests
-sourceSets {
-    integrationTest {
-        java {
-            compileClasspath += main.output + test.output
-            runtimeClasspath += main.output + test.output
-            srcDir file('src/integration-test/java')
+// Function to load environment variables from a .env file
+def loadEnvFromFile(File envFile) {
+    def envVars = [:]
+    if (envFile.exists()) {
+        envFile.eachLine { line ->
+            def trimmedLine = line.trim()
+            // Skip comments and empty lines
+            if (trimmedLine.startsWith('#') || trimmedLine.isEmpty()) {
+                return
+            }
+            // Handle lines potentially starting with 'export '
+            if (trimmedLine.startsWith("export ")) {
+                trimmedLine = trimmedLine.substring(7)
+            }
+            def parts = trimmedLine.split('=', 2)
+            if (parts.length == 2) {
+                def key = parts[0].trim()
+                // Remove potential quotes around the value
+                def value = parts[1].trim().replaceAll(/^[\"']|[\"']$/,'')
+                envVars[key] = value
+            }
         }
-        resources.srcDir file('src/integration-test/resources')
+    } else {
+        logger.warn("Environment file not found: {}", envFile.absolutePath)
     }
+    return envVars
 }
 
-configurations {
-    integrationTestImplementation.extendsFrom testImplementation
-    integrationTestRuntimeOnly.extendsFrom testRuntimeOnly
-}
+// Load environment variables from the root project's .env.integration-test file
+def integrationEnvVars = loadEnvFromFile(rootProject.file('.env.integration-test'))
+
+// Parse database connection details from environment, prioritizing Spring datasource variables
+def skutterDbUrl = System.getenv('SPRING_DATASOURCE_URL') ?: 
+                   System.getenv('SKUTTER_DB_URL') ?: 
+                   integrationEnvVars.getOrDefault('SPRING_DATASOURCE_URL', 
+                   integrationEnvVars.getOrDefault('SKUTTER_DB_URL', 'jdbc:postgresql://localhost:5432/skutter'))
+
+def pgUser = System.getenv('SPRING_DATASOURCE_USERNAME') ?: 
+             System.getenv('SKUTTER_DB_USER') ?: 
+             integrationEnvVars.getOrDefault('SPRING_DATASOURCE_USERNAME', 
+             integrationEnvVars.getOrDefault('SKUTTER_DB_USER', 'postgres'))
+
+def pgPassword = System.getenv('SPRING_DATASOURCE_PASSWORD') ?: 
+                 System.getenv('SKUTTER_DB_PASSWORD') ?: 
+                 integrationEnvVars.getOrDefault('SPRING_DATASOURCE_PASSWORD', 
+                 integrationEnvVars.getOrDefault('SKUTTER_DB_PASSWORD', 'postgres'))
 
 // Ensure JUnit 5 is used
 test {
     useJUnitPlatform()
     finalizedBy jacocoTestReport
+
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat = 'full'
+    }
+    
+    reports {
+        html.required = true
+        junitXml.required = true
+    }
 }
 
 // Create integration test task
@@ -139,9 +203,30 @@ task integrationTest(type: Test) {
     
     mustRunAfter test
     
+    // Use systemProperty instead
+    systemProperty 'mockito.mock-maker-inline', 'true'
+    
     // Enable tests to use environment variables
     systemProperties System.properties
-    environment System.getenv()
+    environment (System.getenv() + integrationEnvVars)
+
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat = 'full'
+    }
+    
+    reports {
+        html.required = true
+        junitXml.required = true
+    }
+
+    doFirst {
+        logger.lifecycle("Integration test environment variables:")
+        environment.each { key, value ->
+            def loggedValue = (key.contains('PASSWORD') || key.contains('SECRET') || key.contains('KEY')) ? '********' : value
+            logger.lifecycle("  {}={}", key, loggedValue)
+        }
+    }
 }
 
 // Check task depends on integrationTest if explicitly enabled
@@ -230,4 +315,35 @@ signing {
         useInMemoryPgpKeys(signingKey, signingPassword)
         sign publishing.publications.mavenJava
     }
+}
+
+// Jib configuration for containerization
+jib {
+    from {
+        image = 'eclipse-temurin:17-jre-jammy'
+    }
+    to {
+        image = "skutterai/omnidata-service:${version}"
+        tags = ['latest']
+    }
+    container {
+        ports = ['8080']
+        environment = [
+            SPRING_PROFILES_ACTIVE: "prod",
+            JAVA_TOOL_OPTIONS: "-Xmx512m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75"
+        ]
+        creationTime = "USE_CURRENT_TIMESTAMP"
+    }
+}
+
+// Flyway configuration with parsed connection details
+flyway {
+    url = skutterDbUrl
+    user = pgUser
+    password = pgPassword
+    locations = ['classpath:db/migration']
+    connectRetries = 3
+    connectRetriesInterval = 10
+    cleanDisabled = false  // Enable clean task for development
+    validateMigrationNaming = true
 } 

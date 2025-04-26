@@ -1,0 +1,11 @@
+FROM alpine:3.18
+
+# Install PostgreSQL client tools
+RUN apk add --no-cache postgresql-client
+
+# Set the working directory
+WORKDIR /
+
+# Make the script executable
+COPY scripts/create-skutter-db.sh /create-skutter-db.sh
+RUN chmod +x /create-skutter-db.sh 

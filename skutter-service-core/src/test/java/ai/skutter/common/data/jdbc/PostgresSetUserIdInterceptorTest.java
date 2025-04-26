@@ -96,7 +96,7 @@ class PostgresSetUserIdInterceptorTest {
         TransactionSynchronizationManager.getSynchronizations().forEach(sync -> sync.beforeCommit(false));
 
         // Assert
-        verify(jdbcTemplate).execute(eq("SET LOCAL skutter.user_id = '\"test-user-123\"'"));
+        verify(jdbcTemplate).execute(eq("SET LOCAL skutter.app.current_user_id = '\"test-user-123\"'"));
     }
 
     @ParameterizedTest
@@ -125,7 +125,7 @@ class PostgresSetUserIdInterceptorTest {
         // Instead of checking exact SQL string, check that the JDBC template was called with any execute()
         // This avoids brittle tests that depend on exact string format
         verify(jdbcTemplate).execute(argThat((String sql) -> 
-            sql.startsWith("SET LOCAL skutter.user_id = '\"") && 
+            sql.startsWith("SET LOCAL skutter.app.current_user_id = '\"") && 
             sql.endsWith("\"'")
         ));
     }
