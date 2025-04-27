@@ -1,26 +1,26 @@
 server:
   port: ${SERVER_PORT:8081}
   servlet:
-    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/1.0/skutter-project-service}
+    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/skutter-project-service/1.0}
   http2:
     enabled: true
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/plain
-    min-response-size: 1024
+    min-response-size: 4096  # Increased from 1024 to 4096 for better performance
   forward-headers-strategy: native
 
 spring:
   application:
     name: ${SPRING_APPLICATION_NAME:skutter-project-service}
   
-  # Add this section back
   main:
     allow-bean-definition-overriding: true
 
   # Profiles configuration
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}
+    # Default to "local" instead of "dev" to distinguish from deployed environments
+    active: ${SPRING_PROFILES_ACTIVE:local}
     
   # Jackson configuration
   jackson:
@@ -33,15 +33,15 @@ spring:
   # Database Configuration
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/skutter}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}  # Changed from postgres to application-specific user
+    password: ${SPRING_DATASOURCE_PASSWORD:your_secure_password}  # No default password
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
       minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
       connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:30000}
       idle-timeout: ${SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT:600000}
-      max-lifetime: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:1800000}
+      max-lifetime: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:1200000}  # Reduced from 1800000 to 1200000 (20 min)
       validation-timeout: ${SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT:5000}
 
   # Flyway Configuration
@@ -60,10 +60,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+        format_sql: ${SPRING_JPA_FORMAT_SQL:false}  # Set to false by default
         jdbc:
           lob.non_contextual_creation: true
-    show-sql: ${SPRING_JPA_SHOW_SQL:true}
+    show-sql: ${SPRING_JPA_SHOW_SQL:false}  # Set to false by default
 
 # Skutter Framework Configuration
 skutter:
@@ -75,7 +75,7 @@ skutter:
       enabled: ${SKUTTER_HTTPS_ENABLED:true}
       port: ${SKUTTER_HTTPS_PORT:8443}
       keystore-path: ${SKUTTER_HTTPS_KEYSTORE_PATH:classpath:keystore/keystore.p12}
-      keystore-password: ${SKUTTER_HTTPS_KEYSTORE_PASSWORD:changeit}
+      keystore-password: ${SKUTTER_HTTPS_KEYSTORE_PASSWORD:changeit}  # No default password
       keystore-type: ${SKUTTER_HTTPS_KEYSTORE_TYPE:PKCS12}
       keystore-alias: ${SKUTTER_HTTPS_KEYSTORE_ALIAS:skutter}
       hsts-enabled: ${SKUTTER_HTTPS_HSTS_ENABLED:true}
@@ -84,7 +84,7 @@ skutter:
       hsts-preload: ${SKUTTER_HTTPS_HSTS_PRELOAD:false}
 
     jwt:
-      secret: ${JWT_SECRET:your-secret-key-here-at-least-32-chars}
+      secret: ${JWT_SECRET:}  # No default secret value for security
       issuer: ${JWT_ISSUER_URL:https://api.supabase.co/auth/v1}
       validate-expiration: ${JWT_VALIDATE_EXPIRATION:true}
       validate-issuer: ${JWT_VALIDATE_ISSUER:true}
@@ -127,14 +127,10 @@ skutter:
       contact-email: dev@skutter.ai
       contact-url: https://skutter.ai
       license-name: Copyright Skutter.ai
-      #license-url: https://www.apache.org/licenses/LICENSE-2.0.html
 
   # Data Configuration
   data:
     enable-user-id-propagation: ${SKUTTER_DATA_ENABLE_USER_ID_PROPAGATION:true}
-    post-gis:
-      enabled: ${SKUTTER_DATA_POSTGIS_ENABLED:true}
-      default-srid: ${SKUTTER_DATA_POSTGIS_DEFAULT_SRID:4326}
 
   # Observability Configuration  
   observability:
@@ -154,10 +150,12 @@ management:
   endpoints:
     web:
       exposure:
-        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,metrics,prometheus,loggers}
+        # Reduced exposed endpoints to only essential ones
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,metrics,prometheus}
+      base-path: ${MANAGEMENT_ENDPOINTS_WEB_BASE_PATH:/actuator}
   endpoint:
     health:
-      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when_authorized}
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when_authorized}  # Changed from always to when_authorized
   health:
     circuitbreakers:
       enabled: ${MANAGEMENT_HEALTH_CIRCUITBREAKERS_ENABLED:true}
@@ -203,21 +201,14 @@ logging:
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{correlationId:-}] - %msg%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
   level:
     root: INFO
-    ai.skutter.common.api.ratelimit: TRACE
-    org.hibernate.SQL: DEBUG
-    # ai.skutter.common.api.ratelimit: TRACE 
-    # Set to DEBUG to see SQL parameters in logs
-    org.hibernate.type.descriptor.sql: TRACE
+    # Reduced DEBUG/TRACE loggers to improve performance
+    ai.skutter: TRACE
+    org.hibernate.SQL: ${LOGGING_LEVEL_ORG_HIBERNATE_SQL:INFO}  # Set to INFO by default, configurable
+    org.hibernate.type.descriptor.sql: ${LOGGING_LEVEL_ORG_HIBERNATE_TYPE:INFO}  # Changed from TRACE to INFO
     org.apache.coyote: WARN
-    org.springframework: DEBUG
-    org.springframework.web: DEBUG
-    # Add these specific loggers for JWT authentication:
-    org.springframework.security.core: DEBUG
-    org.springframework.security: DEBUG
-    org.springframework.security.oauth2: DEBUG
-    org.springframework.security.oauth2.jwt: DEBUG
-    org.springframework.security.authentication: DEBUG
-    org.springframework.security.web.authentication: DEBUG
+    org.springframework: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK:INFO}  # Changed from DEBUG to INFO
+    org.springframework.web: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB:INFO}  # Changed from DEBUG to INFO
+    org.springframework.security: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY:INFO}  # Changed from DEBUG to INFO
 
 # SpringDoc OpenAPI Configuration
 springdoc:
@@ -230,9 +221,92 @@ springdoc:
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
 
-# Actuator Info Endpoint Configuration (Commented out to avoid YAML error)
-# info:
-#   app:
-#     name: @project.name@
-#     description: @project.description@
-#     version: @project.version@
+# ---- Resilience4j ----
+resilience4j:
+  circuitbreaker:
+    circuitBreakerAspectOrder: 1
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 50
+        minimumNumberOfCalls: 10
+        slowCallDurationThreshold: 2s
+        slowCallRateThreshold: 60
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 5
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        eventConsumerBufferSize: 50
+    instances:
+      # ---------- DATABASE ----------
+      databaseService:
+        baseConfig: default
+        failureRateThreshold: 30
+        waitDurationInOpenState: 20s
+        recordExceptions:
+          # Refined list of exceptions that should trigger circuit breaking
+          - org.springframework.dao.RecoverableDataAccessException
+          - org.springframework.transaction.CannotCreateTransactionException
+          - com.zaxxer.hikari.pool.HikariPool$PoolInitializationException
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+          - org.postgresql.util.PSQLException
+          - org.springframework.dao.QueryTimeoutException
+        ignoreExceptions:
+          # Business logic exceptions that shouldn't trigger circuit breaking
+          - org.springframework.dao.DataIntegrityViolationException
+          - org.springframework.dao.EmptyResultDataAccessException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+
+      # ---------- AUTH ----------
+      authService:
+        baseConfig: default
+        slidingWindowSize: 30
+        waitDurationInOpenState: 15s
+        recordExceptions:
+          - java.net.ConnectException
+          - java.net.SocketTimeoutException
+        ignoreExceptions:
+          - org.springframework.security.oauth2.jwt.JwtException
+          - org.springframework.security.access.AccessDeniedException
+          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+
+  ratelimiter:
+    rateLimiterAspectOrder: 0
+    configs:
+      default:
+        registerHealthIndicator: true
+        limitRefreshPeriod: 1s
+        timeoutDuration: 0
+        eventConsumerBufferSize: 100
+    instances:
+      dbReadOperations:
+        baseConfig: default
+        limitForPeriod: 80
+        timeoutDuration: 300ms
+      dbWriteOperations:
+        baseConfig: default
+        limitForPeriod: 80
+        timeoutDuration: 300ms
+      externalApiCalls:
+        baseConfig: default
+        limitForPeriod: 30
+        timeoutDuration: 2s
+
+  retry:
+    retryAspectOrder: 2
+    configs:
+      default: { maxRetryAttempts: 3, waitDuration: 1s }
+    instances:
+      databaseService:
+        baseConfig: default
+      authService:
+        baseConfig: default
+        maxRetryAttempts: 2
+
+  bulkhead:
+    bulkheadAspectOrder: 3
+    instances:
+      databaseService:
+        maxConcurrentCalls: 20

@@ -26,6 +26,8 @@ import ai.skutter.common.security.jwt.JwtTokenProvider;
 import ai.skutter.common.security.jwt.SupabaseJwtProcessor;
 import ai.skutter.common.security.logging.SecurityLoggingFilter;
 import ai.skutter.common.security.properties.SkutterSecurityProperties;
+import ai.skutter.common.security.entrypoint.CustomBearerAuthenticationEntryPoint;
+import ai.skutter.common.security.handler.CustomBearerAccessDeniedHandler;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -44,6 +46,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 
 import java.util.Arrays;
 
@@ -97,13 +101,19 @@ public class SkutterSecurityAutoConfiguration {
         private final JwtAuthenticationFilter jwtAuthenticationFilter;
         private final SecurityLoggingFilter securityLoggingFilter;
         private final SkutterSecurityProperties securityProperties;
+        private final AuthenticationEntryPoint customAuthenticationEntryPoint;
+        private final AccessDeniedHandler customAccessDeniedHandler;
 
         public SecurityConfiguration(JwtAuthenticationFilter jwtAuthenticationFilter,
                                     SecurityLoggingFilter securityLoggingFilter,
-                                    SkutterSecurityProperties securityProperties) {
+                                    SkutterSecurityProperties securityProperties,
+                                    CustomBearerAuthenticationEntryPoint customAuthenticationEntryPoint,
+                                    CustomBearerAccessDeniedHandler customAccessDeniedHandler) {
             this.jwtAuthenticationFilter = jwtAuthenticationFilter;
             this.securityLoggingFilter = securityLoggingFilter;
             this.securityProperties = securityProperties;
+            this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
+            this.customAccessDeniedHandler = customAccessDeniedHandler;
         }
         
         /**
@@ -173,6 +183,12 @@ public class SkutterSecurityAutoConfiguration {
                 // Secured endpoints
                 auth.anyRequest().authenticated();
             });
+
+            // Configure custom exception handling
+            http.exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(customAuthenticationEntryPoint)
+                .accessDeniedHandler(customAccessDeniedHandler)
+            );
 
             // Add JWT filter before UsernamePasswordAuthenticationFilter
             http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
