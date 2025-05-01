@@ -29,7 +29,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         this.refreshPeriod = refreshPeriod;
         this.buckets = new ConcurrentHashMap<>();
         log.info("Initializing RateLimitInterceptor: Limit={} requests per {} seconds", 
-                 limit, refreshPeriod.getSeconds());
+                limit, refreshPeriod.getSeconds());
     }
 
     @Override

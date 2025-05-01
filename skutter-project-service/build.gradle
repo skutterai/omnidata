@@ -86,7 +86,7 @@ def envVars = loadEnvFromFile(rootProject.file('.env'))
 def dbUrl = System.getenv('SPRING_DATASOURCE_URL') ?: 
            System.getenv('SKUTTER_DB_URL') ?: 
            envVars.getOrDefault('SPRING_DATASOURCE_URL', 
-           envVars.getOrDefault('SKUTTER_DB_URL', 'jdbc:postgresql://localhost:5432/skutter'))
+           envVars.getOrDefault('SKUTTER_DB_URL', 'jdbc:postgresql://localhost:5432/postgres?sslmode=prefer'))
 
 def dbUser = System.getenv('SPRING_DATASOURCE_USERNAME') ?: 
              System.getenv('SKUTTER_DB_USER') ?: 
@@ -103,7 +103,10 @@ flyway {
     url = dbUrl
     user = dbUser
     password = dbPass
-    locations = ['classpath:db/migration']
+    locations = ['classpath:db/migration', 'filesystem:src/main/resources/db/migration']
+    schemas = ['skutter']
+    defaultSchema = 'skutter'
+    table = 'flyway_schema_history'
     connectRetries = 3
     connectRetriesInterval = 10
     cleanDisabled = false

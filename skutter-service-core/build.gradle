@@ -49,6 +49,7 @@ sourceSets {
             srcDir file('src/integration-test/java')
         }
         resources.srcDir file('src/integration-test/resources')
+        runtimeClasspath += project(':skutter-project-service').sourceSets.main.resources
     }
 }
 
@@ -167,19 +168,19 @@ def loadEnvFromFile(File envFile) {
 def integrationEnvVars = loadEnvFromFile(rootProject.file('.env.integration-test'))
 
 // Parse database connection details from environment, prioritizing Spring datasource variables
-def skutterDbUrl = System.getenv('SPRING_DATASOURCE_URL') ?: 
-                   System.getenv('SKUTTER_DB_URL') ?: 
-                   integrationEnvVars.getOrDefault('SPRING_DATASOURCE_URL', 
-                   integrationEnvVars.getOrDefault('SKUTTER_DB_URL', 'jdbc:postgresql://localhost:5432/skutter'))
+def skutterDbUrl = System.getenv('SPRING_DATASOURCE_URL') ?:
+                   System.getenv('SKUTTER_DB_URL') ?:
+                   integrationEnvVars.getOrDefault('SPRING_DATASOURCE_URL',
+                   integrationEnvVars.getOrDefault('SKUTTER_DB_URL', 'jdbc:postgresql://localhost:5432/postgres?sslmode=prefer'))
 
-def pgUser = System.getenv('SPRING_DATASOURCE_USERNAME') ?: 
-             System.getenv('SKUTTER_DB_USER') ?: 
-             integrationEnvVars.getOrDefault('SPRING_DATASOURCE_USERNAME', 
+def pgUser = System.getenv('SPRING_DATASOURCE_USERNAME') ?:
+             System.getenv('SKUTTER_DB_USER') ?:
+             integrationEnvVars.getOrDefault('SPRING_DATASOURCE_USERNAME',
              integrationEnvVars.getOrDefault('SKUTTER_DB_USER', 'postgres'))
 
-def pgPassword = System.getenv('SPRING_DATASOURCE_PASSWORD') ?: 
-                 System.getenv('SKUTTER_DB_PASSWORD') ?: 
-                 integrationEnvVars.getOrDefault('SPRING_DATASOURCE_PASSWORD', 
+def pgPassword = System.getenv('SPRING_DATASOURCE_PASSWORD') ?:
+                 System.getenv('SKUTTER_DB_PASSWORD') ?:
+                 integrationEnvVars.getOrDefault('SPRING_DATASOURCE_PASSWORD',
                  integrationEnvVars.getOrDefault('SKUTTER_DB_PASSWORD', 'postgres'))
 
 // Ensure JUnit 5 is used
@@ -209,6 +210,9 @@ task integrationTest(type: Test) {
     useJUnitPlatform()
     
     mustRunAfter test
+    
+    // Explicitly set the active profile for this test task
+    systemProperty 'spring.profiles.active', 'dev'
     
     // Use systemProperty instead
     systemProperty 'mockito.mock-maker-inline', 'true'
@@ -348,9 +352,14 @@ flyway {
     url = skutterDbUrl
     user = pgUser
     password = pgPassword
-    locations = ['classpath:db/migration']
+    // Point only to the local migrations as this module now owns them
+    locations = ['filesystem:src/main/resources/db/migration'] 
+    schemas = ['skutter']
+    defaultSchema = 'skutter'
+    table = 'flyway_schema_history' // REMOVED schema prefix
     connectRetries = 3
     connectRetriesInterval = 10
-    cleanDisabled = false  // Enable clean task for development
+    // Set cleanDisabled to false temporarily for cleanup, you might want to set it back to true later
+    cleanDisabled = false 
     validateMigrationNaming = true
 } 

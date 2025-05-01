@@ -56,13 +56,11 @@ import static org.junit.jupiter.api.Assertions.*;
     FlywayAutoConfiguration.class,
     JdbcTemplateAutoConfiguration.class
 })
-@org.springframework.test.context.ActiveProfiles("test")
-// Explicitly configure listeners to exclude Mockito listener
+@org.springframework.test.context.ActiveProfiles("dev")
 @TestExecutionListeners(listeners = {
     ServletTestExecutionListener.class,
     DependencyInjectionTestExecutionListener.class,
     DirtiesContextTestExecutionListener.class
-    // Exclude ResetMocksTestExecutionListener
 })
 public class FlywayIntegrationTest {
 

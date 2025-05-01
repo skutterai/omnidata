@@ -45,9 +45,6 @@ else
   # Connect to the new database and enable extensions
   log "Enabling PostGIS and other extensions..."
   psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS postgis;" 2>&1 | tee -a $LOG_FILE
-  psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS postgis_topology;" 2>&1 | tee -a $LOG_FILE
-  psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS fuzzystrmatch;" 2>&1 | tee -a $LOG_FILE
-  psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS postgis_tiger_geocoder;" 2>&1 | tee -a $LOG_FILE
   psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;" 2>&1 | tee -a $LOG_FILE
   psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS unaccent;" 2>&1 | tee -a $LOG_FILE
   

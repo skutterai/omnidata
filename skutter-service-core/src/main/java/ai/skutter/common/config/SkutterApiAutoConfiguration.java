@@ -22,7 +22,6 @@ package ai.skutter.common.config;
 import ai.skutter.common.api.exception.GlobalExceptionHandler;
 import ai.skutter.common.api.properties.SkutterApiProperties;
 import ai.skutter.common.api.ratelimit.RateLimitInterceptor;
-import ai.skutter.common.api.resilience.CircuitBreakerConfiguration;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
@@ -47,7 +46,6 @@ import org.springframework.context.annotation.Lazy;
 @AutoConfiguration
 @EnableConfigurationProperties(SkutterApiProperties.class)
 @ComponentScan("ai.skutter.common.api")
-@Import(CircuitBreakerConfiguration.class)
 public class SkutterApiAutoConfiguration implements WebMvcConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(SkutterApiAutoConfiguration.class);

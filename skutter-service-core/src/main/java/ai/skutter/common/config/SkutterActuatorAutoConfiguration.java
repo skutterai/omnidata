@@ -119,15 +119,15 @@ public class SkutterActuatorAutoConfiguration {
 
                         // Allow OWNER only for potentially sensitive endpoints (all methods)
                         if (properties.getEndpoints().isEnv()) {
-                           authorize.requestMatchers(basePath + "/env/**").hasRole(platformOwnerRole);
+                            authorize.requestMatchers(basePath + "/env/**").hasRole(platformOwnerRole);
                         }
                         if (properties.getEndpoints().isHeapdump()) {
-                           authorize.requestMatchers(basePath + "/heapdump/**").hasRole(platformOwnerRole);
+                            authorize.requestMatchers(basePath + "/heapdump/**").hasRole(platformOwnerRole);
                         }
-
+                        
                         // Default for any other actuator request: Require PLATFORM_OWNER
-                        authorize.anyRequest().hasRole(platformOwnerRole);
-
+                        authorize.anyRequest().hasRole(platformOwnerRole); 
+                        
                     } else {
                         // If authentication is not required by config, permit all actuator endpoints
                         authorize.anyRequest().permitAll();

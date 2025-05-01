@@ -1,156 +1,162 @@
 # ────────────────────────────────────────────────────────────────────────────────
-#  GLOBAL SERVER & SSL (reload-on-update)                                         
+#  STANDARD SPRING BOOT - SERVER & SSL (reload-on-update)
 # ────────────────────────────────────────────────────────────────────────────────
 server:
-  port: ${SKUTTER_HTTPS_PORT:8445}           # single HTTPS port
+  port: ${SERVER_DEV_PORT:8445} # Use a dev-specific env var or keep the default
   servlet:
-    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/skutter-project-service/1.0}
-
+    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/skutter-project-service/1.0} # Service specific context path
   http2:
     enabled: true
-
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/plain,application/javascript,text/css
-    min-response-size: 4096
+    min-response-size: 1024 # Adjusted from 4096, as 1024 is common
   forward-headers-strategy: native
-
-  # Tell Tomcat / Netty to use the bundle declared below
+  # --- Standard SSL Bundle Config ---
   ssl:
-    bundle: skutter-ssl
+    bundle: skutter-ssl # Reference the PEM bundle defined under spring.ssl
     enabled-protocols: TLSv1.3,TLSv1.2
-    ciphers: >
-      TLS_AES_256_GCM_SHA384,
-      TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+    ciphers:
+      - TLS_AES_256_GCM_SHA384
+      - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
 
 # ────────────────────────────────────────────────────────────────────────────────
-#  SPRING BOOT                                                                   
+#  STANDARD SPRING BOOT - CORE & DATA
 # ────────────────────────────────────────────────────────────────────────────────
 spring:
   application:
-    name: ${SPRING_APPLICATION_NAME:skutter-project-service}
+    name: ${SPRING_APPLICATION_NAME:skutter-project-service} # Service specific name
 
   main:
-    allow-bean-definition-overriding: true
+    allow-bean-definition-overriding: true # Keep if needed due to core library issues
 
-  profiles:
-    active: ${SPRING_PROFILES_ACTIVE:local}
-
-  # ── Jackson ────────────────────────────────────────────────────
+  # --- Standard Jackson Config ---
   jackson:
     property-naming-strategy: SNAKE_CASE
-    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSSXXX # ISO 8601 Format
     serialization:
       write-dates-as-timestamps: false
     deserialization:
       fail-on-unknown-properties: false
 
-  # ── **Hot-reloadable** SSL bundle (PEM example) ───────────────
+  # --- Standard **Hot-reloadable** SSL bundle (PEM example) ---
   ssl:
     bundle:
       pem:
-        skutter-ssl:                           # ← the name referenced by server.ssl.bundle
-          reload-on-update: true               # hot-reload switch
+        skutter-ssl: # The name referenced by server.ssl.bundle
+          reload-on-update: true # Enable hot-reload for dev
           watch:
             file:
-              quiet-period: 10s                     # debounce (default 10 s)
+              quiet-period: 5s # Shorter quiet period for dev
           keystore:
+            # Expects certs in /opt/skutter.ai/etc/certs/ or override with env vars
             certificate: ${SKUTTER_TLS_CERT:file:${SKUTTER_HOME:/opt/skutter.ai}/etc/certs/server.crt}
-            private-key:  ${SKUTTER_TLS_KEY:file:${SKUTTER_HOME:/opt/skutter.ai}/etc/certs/server.key}
+            private-key: ${SKUTTER_TLS_KEY:file:${SKUTTER_HOME:/opt/skutter.ai}/etc/certs/server.key}
 
-  # ── DataSource ────────────────────────────────────────────────
+  # --- Standard DataSource Config ---
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres?sslmode=prefer}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:your-super-secret-and-long-postgres-password}
+    password: ${SPRING_DATASOURCE_PASSWORD:your-super-secret-and-long-postgres-password} # Use env var or profile-specific secret management
     driver-class-name: org.postgresql.Driver
     hikari:
+      # Dev profile can often use smaller pool sizes
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE_DEV:5}
+      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE_DEV:2}
+      # Keep other timeouts reasonable for dev
       keepalive-time: ${SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME:240000}
-      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
-      minimum-idle: ${SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE:5}
       connection-timeout: ${SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT:30000}
       idle-timeout: ${SPRING_DATASOURCE_HIKARI_IDLE_TIMEOUT:600000}
       max-lifetime: ${SPRING_DATASOURCE_HIKARI_MAX_LIFETIME:1740000}
       validation-timeout: ${SPRING_DATASOURCE_HIKARI_VALIDATION_TIMEOUT:5000}
 
-  # ── Flyway ────────────────────────────────────────────────────
+  # --- Standard Flyway Config ---
   flyway:
     enabled: true
     connect-retries: 4
-    default-schema: skutter
-    schemas: skutter
-    create-schemas: true
+    default-schema: skutter # Correct
+    schemas: skutter # Correct
+    create-schemas: true # Correct for tests
     baseline-on-migrate: true
-    locations: classpath:db/migration
+    locations: classpath:db/migration # Standard location
+    table: flyway_schema_history # CORRECTED: Removed schema prefix
     placeholders:
       timezone: UTC
 
-  # ── JPA / Hibernate ───────────────────────────────────────────
+  # --- Standard JPA / Hibernate Config ---
   jpa:
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:validate}
+      # Use 'update' or 'create-drop' cautiously in dev, 'validate' is safer
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO_DEV:validate}
     properties:
       hibernate:
-        default_schema: skutter
+        default_schema: skutter # Ensure Hibernate uses the target schema
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: ${SPRING_JPA_FORMAT_SQL:false}
+        format_sql: ${SPRING_JPA_FORMAT_SQL_DEV:true} # Enable SQL formatting for dev
         jdbc:
           lob.non_contextual_creation: true
-    show-sql: ${SPRING_JPA_SHOW_SQL:false}
+    # Enable SQL logging for dev profile
+    show-sql: ${SPRING_JPA_SHOW_SQL_DEV:true}
 
 # ────────────────────────────────────────────────────────────────────────────────
-#  SKUTTER FRAMEWORK                                                            
+#  SKUTTER FRAMEWORK (Custom properties needed by skutter-service-core)
 # ────────────────────────────────────────────────────────────────────────────────
 skutter:
   security:
-    enabled: ${SKUTTER_SECURITY_ENABLED:true}
-
-    # ── HTTPS Settings – now delegated to server.ssl.bundle ──
+    enabled: ${SKUTTER_SECURITY_ENABLED:true} # Keep master switch
+    # --- HTTPS (Legacy) ---
+    # This section is only relevant if skutter.security.https.enabled=true (which it shouldn't be for this profile)
+    # We disable it here to ensure no conflict with server.ssl.bundle
     https:
-      enabled: true              # still used by your own code if you reference it
-      port: ${SKUTTER_HTTPS_PORT:8445}
-      hsts-enabled: ${SKUTTER_HTTPS_HSTS_ENABLED:true}
-      hsts-max-age-seconds: ${SKUTTER_HTTPS_HSTS_MAX_AGE_SECONDS:31536000}
-      hsts-include-sub-domains: ${SKUTTER_HTTPS_HSTS_INCLUDE_SUB_DOMAINS:true}
-      hsts-preload: ${SKUTTER_HTTPS_HSTS_PRELOAD:false}
+      enabled: false # Disable the core library's legacy TLS config
 
-    # ── JWT ───────────────────────────────────────────────────
+    # --- JWT ---
+    # These are required inputs for the custom JWT logic in the core library
     jwt:
-      secret: ${JWT_SECRET}                     # supply at runtime
+      secret: ${JWT_SECRET} # MUST be provided via env var or secrets management
       issuer: ${JWT_ISSUER_URL:https://api.supabase.co/auth/v1}
       validate-expiration: ${JWT_VALIDATE_EXPIRATION:true}
       validate-issuer: ${JWT_VALIDATE_ISSUER:true}
       role-claim: ${JWT_ROLE_CLAIM:app_metadata.skutter_role}
       user-id-claim: ${JWT_USER_ID_CLAIM:sub}
-      set-postgres-user-id: ${JWT_SET_POSTGRES_USER_ID:true}
+      set-postgres-user-id: ${JWT_SET_POSTGRES_USER_ID:true} # Keep custom feature toggle
 
+    # --- Public Paths ---
+    # These configure the custom SecurityFilterChain in the core library
     public-paths:
       - /actuator/health/**
       - /actuator/info
       - /v3/api-docs/**
       - /swagger-ui/**
       - /swagger-ui.html
-      - /health
+      - /health # Assuming this is your custom health endpoint
       - /public/**
 
+    # --- CORS ---
+    # Configures the custom CorsConfigurationSource bean from the core library
     cors:
       enabled: ${SKUTTER_CORS_ENABLED:true}
       allowed-origins:
-        - ${SKUTTER_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+        - ${SKUTTER_CORS_ALLOWED_ORIGINS_DEV:http://localhost:3000,http://127.0.0.1:3000} # Dev specific origins
       allowed-methods: ${SKUTTER_CORS_ALLOWED_METHODS:GET,POST,PUT,PATCH,DELETE,OPTIONS}
       allowed-headers: ${SKUTTER_CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,X-Requested-With,X-Correlation-ID}
       allow-credentials: ${SKUTTER_CORS_ALLOW_CREDENTIALS:true}
       max-age: ${SKUTTER_CORS_MAX_AGE:3600}
 
   api:
-    rate-limit:
-      enabled: ${SKUTTER_API_RATE_LIMIT_ENABLED:true}
-      limit: ${SKUTTER_API_RATE_LIMIT_LIMIT:60}
-      refresh-period: ${SKUTTER_API_RATE_LIMIT_REFRESH_PERIOD:60s}
+    # --- Rate Limiting (Custom Interceptor) ---
+    # Keep only if you need to OVERRIDE the defaults set in SkutterApiProperties in the core library
+    # Otherwise, remove this block and rely on the core defaults.
+    # rate-limit:
+    #   enabled: ${SKUTTER_API_RATE_LIMIT_ENABLED:true}
+    #   limit: ${SKUTTER_API_RATE_LIMIT_LIMIT:60}
+    #   refresh-period: ${SKUTTER_API_RATE_LIMIT_REFRESH_PERIOD:60s}
 
+    # --- Documentation (Custom OpenAPI Bean) ---
+    # Configures the custom OpenAPI bean from the core library
     documentation:
       enabled: true
-      title: Skutter Project Service API
+      title: Skutter Project Service API (Dev) # Specify Dev in title
       version: 1.0
       description: API for managing projects and user assignments in the Skutter platform
       contact-name: Skutter Development Team
@@ -158,69 +164,80 @@ skutter:
       contact-url: https://skutter.ai
       license-name: Copyright Skutter.ai
 
+  # --- Data (Custom Features) ---
   data:
-    enable-user-id-propagation: ${SKUTTER_DATA_ENABLE_USER_ID_PROPAGATION:true}
+    enable-user-id-propagation: ${SKUTTER_DATA_ENABLE_USER_ID_PROPAGATION:true} # Keep custom feature toggle
 
-  observability:
-    correlation:
-      header-name: ${SKUTTER_CORRELATION_HEADER_NAME:X-Correlation-ID}
-      generate-if-missing: ${SKUTTER_CORRELATION_GENERATE_IF_MISSING:true}
-      propagate-to-downstream: ${SKUTTER_CORRELATION_PROPAGATE_TO_DOWNSTREAM:true}
-    logging:
-      level: INFO
-      include-correlation-id: true
-      include-user-id: true
-      include-request-details: true
+  # --- Observability (Custom Features) ---
+  # Keep only if overriding core defaults from SkutterObservabilityProperties
+  # correlation:
+  #   header-name: ${SKUTTER_CORRELATION_HEADER_NAME:X-Correlation-ID}
+  #   generate-if-missing: ${SKUTTER_CORRELATION_GENERATE_IF_MISSING:true}
+  #   propagate-to-downstream: ${SKUTTER_CORRELATION_PROPAGATE_TO_DOWNSTREAM:true}
+  
+  # Remove this logging block if functionality is covered by standard logging.* below
+  # logging:
+  #   level: INFO
+  #   include-correlation-id: true
+  #   include-user-id: true
+  #   include-request-details: true
 
 # ────────────────────────────────────────────────────────────────────────────────
-#  ACTUATOR / METRICS                                                           
+#  STANDARD SPRING BOOT - ACTUATOR / METRICS
 # ────────────────────────────────────────────────────────────────────────────────
 management:
   endpoints:
     web:
       base-path: ${MANAGEMENT_ENDPOINTS_WEB_BASE_PATH:/actuator}
       exposure:
-        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info}
+        # Expose more endpoints for dev profile, including resilience4j ones
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_DEV:health,info,metrics,prometheus,loggers,skutter-loggers,beans,env,configprops,mappings,threaddump,heapdump,circuitbreakers,ratelimiters,retries,bulkheads}
   endpoint:
     health:
-      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when_authorized}
+      # Show full details in dev
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS_DEV:always}
   metrics:
     export:
       prometheus:
         enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true}
 
 # ────────────────────────────────────────────────────────────────────────────────
-#  LOGGING                                                                      
+#  STANDARD SPRING BOOT - LOGGING
 # ────────────────────────────────────────────────────────────────────────────────
 logging:
   file:
-    name: ${LOGGING_FILE_NAME:${SKUTTER_HOME:/opt/skutter.ai}/logs/skutter-project-service.log}
+    # Use a dev-specific log file path/name if desired
+    name: ${LOGGING_FILE_NAME_DEV:${SKUTTER_HOME:/opt/skutter.ai}/logs/skutter-project-service-dev.log}
   logback:
     rollingpolicy:
       file-name-pattern: ${logging.file.name}.%d{yyyy-MM-dd}.%i.log.gz
       max-file-size: ${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_FILE_SIZE:10MB}
-      max-history: ${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY:30}
-      total-size-cap: ${LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP:3GB}
+      max-history: ${LOGGING_LOGBACK_ROLLINGPOLICY_MAX_HISTORY:7} # Keep less history for dev
+      total-size-cap: ${LOGGING_LOGBACK_ROLLINGPOLICY_TOTAL_SIZE_CAP:1GB} # Lower cap for dev
       clean-history-on-start: false
   pattern:
     console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} [%X{correlationId:-}] %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{correlationId:-}] - %msg%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
   level:
     root: INFO
+    # Enable TRACE for skutter packages specifically in dev
     ai.skutter: TRACE
-    org.hibernate.SQL: ${LOGGING_LEVEL_ORG_HIBERNATE_SQL:INFO}
-    org.hibernate.type.descriptor.sql: ${LOGGING_LEVEL_ORG_HIBERNATE_TYPE:INFO}
+    # Enable DEBUG for specific Spring packages useful in dev
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG # Log SQL statements
+    org.hibernate.type.descriptor.sql: TRACE # Log SQL parameters
+    # Keep others less verbose unless needed
     org.apache.coyote: WARN
-    org.springframework: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK:INFO}
-    org.springframework.web: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB:INFO}
-    org.springframework.security: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY:INFO}
 
 # ────────────────────────────────────────────────────────────────────────────────
-#  RESILIENCE4J (unchanged)                                                     
+#  STANDARD RESILIENCE4J (Use standard properties)
 # ────────────────────────────────────────────────────────────────────────────────
 resilience4j:
+  # Keep the aspect orders defined previously
   circuitbreaker:
     circuitBreakerAspectOrder: 1
+    # Define configs and instances as needed, potentially with dev-specific settings
     configs:
       default:
         registerHealthIndicator: true
@@ -239,29 +256,8 @@ resilience4j:
         baseConfig: default
         failureRateThreshold: 30
         waitDurationInOpenState: 20s
-        recordExceptions:
-          - org.springframework.dao.RecoverableDataAccessException
-          - org.springframework.transaction.CannotCreateTransactionException
-          - com.zaxxer.hikari.pool.HikariPool$PoolInitializationException
-          - java.net.ConnectException
-          - java.net.SocketTimeoutException
-          - org.postgresql.util.PSQLException
-          - org.springframework.dao.QueryTimeoutException
-        ignoreExceptions:
-          - org.springframework.dao.DataIntegrityViolationException
-          - org.springframework.dao.EmptyResultDataAccessException
-          - io.github.resilience4j.ratelimiter.RequestNotPermitted
-      authService:
-        baseConfig: default
-        slidingWindowSize: 30
-        waitDurationInOpenState: 15s
-        recordExceptions:
-          - java.net.ConnectException
-          - java.net.SocketTimeoutException
-        ignoreExceptions:
-          - org.springframework.security.oauth2.jwt.JwtException
-          - org.springframework.security.access.AccessDeniedException
-          - io.github.resilience4j.ratelimiter.RequestNotPermitted
+        # ... other db specific settings ...
+      # ... other instances ...
 
   ratelimiter:
     rateLimiterAspectOrder: 0
@@ -272,32 +268,27 @@ resilience4j:
         timeoutDuration: 0
         eventConsumerBufferSize: 100
     instances:
+      # Define instances as needed
       dbReadOperations:
         baseConfig: default
         limitForPeriod: 80
         timeoutDuration: 300ms
-      dbWriteOperations:
-        baseConfig: default
-        limitForPeriod: 80
-        timeoutDuration: 300ms
-      externalApiCalls:
-        baseConfig: default
-        limitForPeriod: 30
-        timeoutDuration: 2s
+      # ... other instances ...
 
   retry:
     retryAspectOrder: 2
     configs:
       default: { maxRetryAttempts: 3, waitDuration: 1s }
     instances:
+      # Define instances as needed
       databaseService:
         baseConfig: default
-      authService:
-        baseConfig: default
-        maxRetryAttempts: 2
+      # ... other instances ...
 
   bulkhead:
     bulkheadAspectOrder: 3
     instances:
+      # Define instances as needed
       databaseService:
         maxConcurrentCalls: 20
+      # ... other instances ...

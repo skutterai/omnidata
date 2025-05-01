@@ -44,7 +44,7 @@ public class AuditorAwareImpl implements AuditorAware<String> {
                     } else if (principal instanceof String) {
                         // Handle cases where principal is just a String (e.g., system processes)
                         // Consider if "system" is more appropriate here too
-                        return Optional.of((String) principal); 
+                        return Optional.of((String) principal);
                     } else {
                         // Fallback or anonymous user
                         // Use a consistent identifier like "system" or "anonymous"
