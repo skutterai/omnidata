@@ -56,7 +56,7 @@ spring:
   # --- Standard DataSource Config ---
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/postgres?sslmode=prefer}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.your-tenant-id}
     password: ${SPRING_DATASOURCE_PASSWORD:your-super-secret-and-long-postgres-password} # Use env var or profile-specific secret management
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -124,12 +124,11 @@ skutter:
     # --- Public Paths ---
     # These configure the custom SecurityFilterChain in the core library
     public-paths:
-      - /actuator/health/**
-      - /actuator/info
+      - /actuator/**
       - /v3/api-docs/**
       - /swagger-ui/**
       - /swagger-ui.html
-      - /health # Assuming this is your custom health endpoint
+      - /health
       - /public/**
 
     # --- CORS ---
@@ -188,14 +187,12 @@ skutter:
 management:
   endpoints:
     web:
-      base-path: ${MANAGEMENT_ENDPOINTS_WEB_BASE_PATH:/actuator}
+      base-path: /actuator
       exposure:
-        # Expose more endpoints for dev profile, including resilience4j ones
-        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE_DEV:health,info,metrics,prometheus,loggers,skutter-loggers,beans,env,configprops,mappings,threaddump,heapdump,circuitbreakers,ratelimiters,retries,bulkheads}
+        include: health,info,metrics,prometheus,loggers,skutter-loggers,beans,env,configprops,mappings,threaddump,heapdump,circuitbreakers,ratelimiters,retries,bulkheads # Or just '*' for dev
   endpoint:
     health:
-      # Show full details in dev
-      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS_DEV:always}
+      show-details: always
   metrics:
     export:
       prometheus:
@@ -292,3 +289,7 @@ resilience4j:
       databaseService:
         maxConcurrentCalls: 20
       # ... other instances ...
+
+# --- Add Springdoc config ---
+springdoc:
+  show-actuator: true # Explicitly tell springdoc to show actuator endpoints
